@@ -13,7 +13,74 @@ function cx(...a:(string|false|undefined|null)[]){ return a.filter(Boolean).join
 function numOrNull(v:any){ const n = parseFloat(v); return Number.isFinite(n)? n : null; }
 function fmt(n:number|null|undefined, d=2){ if(n==null || !Number.isFinite(n as number)) return "—"; return Number(n).toFixed(d); }
 function colorPL(v:number|null){ if(v==null) return ""; return v>=0? "plpos":"plneg"; }
-function normalizeSymbol(raw:string){ const up=(raw||"").toUpperCase().trim(); let s=up.replace(/[^A-Z0-9/]/g,"").replace(/USDT$|USD$|\/USDT$|\/USD$/,""); if(!s) s=up; return s; }
+
+function normalizeSymbol(raw: string): string {
+  if (!raw) return "";
+
+  // убрать скобки, пробелы, мусор
+  let s = raw.toUpperCase().replace(/[\s()]/g, "").trim();
+
+  // убрать только ХВОСТ (если он один)
+  // Пример: ADAUSDT → ADA, ARB/USD → ARB
+  s = s.replace(/(\/?USDT|\/?USD)$/i, "");
+
+  // исключения для тикеров, у которых символ ≠ id на CoinGecko
+  const exceptions: Record<string, string> = {
+    "1INCH": "1INCH",
+    "AAVE": "AAVE",
+    "ADA": "ADA",
+    "ALGO": "ALGO",
+    "APE": "APE",
+    "APT": "APT",
+    "ARB": "ARB",
+    "ATOM": "ATOM",
+    "AVAX": "AVAX",
+    "BAND": "BAND",
+    "BICO": "BICO",
+    "BTC": "BTC",
+    "CHZ": "CHZ",
+    "DOGE": "DOGE",
+    "DOT": "DOT",
+    "EGLD": "EGLD",
+    "ETH": "ETH",
+    "FIL": "FIL",
+    "FTM": "FTM",
+    "HBAR": "HBAR",
+    "IMX": "IMX",
+    "ICP": "ICP",
+    "LDO": "LDO",
+    "LINK": "LINK",
+    "MATIC": "MATIC",
+    "NEAR": "NEAR",
+    "OP": "OP",
+    "QNT": "QNT",
+    "RUNE": "RUNE",
+    "SAND": "SAND",
+    "SFP": "SFP",
+    "SOL": "SOL",
+    "STX": "STX",
+    "SXP": "SXP",
+    "TRX": "TRX",
+    "UNI": "UNI",
+    "VET": "VET",
+    "XLM": "XLM",
+    "XRP": "XRP",
+    "XTZ": "XTZ",
+    "HFT": "HFT",
+    "FXS": "FXS",
+    "LRC": "LRC",
+    "CVX": "CVX",
+    "ANKR": "ANKR",
+    "ROOK": "ROOK",
+  };
+
+  if (exceptions[s]) return exceptions[s];
+
+  return s;
+}
+
+
+
 
 function useTheme(){
   const [theme,setTheme] = useState<string>(()=>localStorage.getItem(LS_THEME)||"light");
