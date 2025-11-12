@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
@@ -34,22 +33,25 @@ async function geckoSearchId(symbol:string):Promise<string|null>{
   try{ const q=encodeURIComponent(symbol); const r=await fetch(`https://api.coingecko.com/api/v3/search?query=${q}`); if(!r.ok) return null; const js=await r.json(); const exact=js?.coins?.find((c:any)=>(c.symbol||"").toUpperCase()===symbol.toUpperCase()); return exact?.id||null; }catch{ return null; }
 }
 
+// === исправленный пакетный запрос ===
 async function fetchPrices(symbols:string[], map:MapDict){
-  const idMap:Record<string,string> = {};
   const userMap = loadUserMap();
+  const idMap:Record<string,string> = {};
+
+  // Используем только сохранённые соответствия
   for(const sym of symbols){
     const fromUser=userMap[sym]; const fromBase=map[sym];
-    if(fromUser){ idMap[sym]=fromUser; continue; }
-    if(fromBase){ idMap[sym]=fromBase; continue; }
-    const found = await geckoSearchId(sym);
-    if(found){ idMap[sym]=found; userMap[sym]=found; }
+    if(fromUser) idMap[sym]=fromUser;
+    else if(fromBase) idMap[sym]=fromBase;
   }
-  saveUserMap(userMap);
-  const uniqueIds = Array.from(new Set(Object.values(idMap)));
+
+  const uniqueIds = Array.from(new Set(Object.values(idMap).filter(Boolean)));
   if(uniqueIds.length===0) return {} as Record<string,PriceEntry>;
+
   const chunkSize=150;
   const chunks:string[][]=[]; for(let i=0;i<uniqueIds.length;i+=chunkSize) chunks.push(uniqueIds.slice(i,i+chunkSize));
   const results:Record<string,PriceEntry>={};
+
   for(const ch of chunks){
     const url=`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ch.join(","))}&vs_currencies=usd&include_24hr_change=true`;
     const r=await fetch(url); if(!r.ok) continue; const js=await r.json();
@@ -59,7 +61,11 @@ async function fetchPrices(symbols:string[], map:MapDict){
       for(const [sym,mapped] of Object.entries(idMap)){ if(mapped===gid) results[sym]={price, ch:chg, id:gid}; }
     }
   }
-  for(const sym of symbols) if(!results[sym]) results[sym]={price:null, ch:null, id:idMap[sym]||"—"};
+
+  for(const sym of symbols)
+    if(!results[sym])
+      results[sym]={price:null, ch:null, id:idMap[sym]||"—"};
+
   return results;
 }
 
@@ -94,7 +100,11 @@ export default function AltcoinTrackerApp(){
   useEffect(()=>{ localStorage.setItem(LS_ROWS, JSON.stringify(rows)); },[rows]);
   useEffect(()=>{ (async()=> setMap(await loadBaseMap()))(); },[]);
 
-  async function refresh(){ const symbols=Array.from(new Set(rows.map(r=>normalizeSymbol(r.token)))); const p=await fetchPrices(symbols,map); setPrices(p); }
+  async function refresh(){
+    const symbols=Array.from(new Set(rows.map(r=>normalizeSymbol(r.token))));
+    const p=await fetchPrices(symbols,map);
+    setPrices(p);
+  }
 
   const table = useMemo(()=>{
     const enriched = rows.map(r=>{
@@ -110,21 +120,14 @@ export default function AltcoinTrackerApp(){
     return list;
   },[rows,prices,search,profitOnly,sort]);
 
-  useEffect(()=>{
-    if(!tvSymbol) return;
-    // @ts-ignore
-    const TV=(window as any).TradingView; if(!TV || !tvRef.current) return; tvRef.current.innerHTML="";
-    // @ts-ignore
-    new TV.widget({ autosize:true, symbol:`BINANCE:${tvSymbol}`, interval:"60", timezone:"Etc/UTC", theme:theme==="dark"?"dark":"light",
-      style:"1", locale:"en", enable_publishing:false, hide_top_toolbar:false, container_id:tvRef.current.id });
-  },[tvSymbol,theme]);
-
   async function onUploadXlsx(e:React.ChangeEvent<HTMLInputElement>){
     const f=e.target.files?.[0]; if(!f) return;
     try{
       const parsed=await readSummarySheet(f); setRows(parsed);
       const symbols=Array.from(new Set(parsed.map(r=>normalizeSymbol(r.token)))); const userMap=loadUserMap();
-      for(const s of symbols){ if(userMap[s]) continue; const found=await geckoSearchId(s); if(found) userMap[s]=found; } saveUserMap(userMap);
+      for(const s of symbols){ if(userMap[s]) continue; const found=await geckoSearchId(s); if(found) userMap[s]=found; }
+      saveUserMap(userMap);
+      await refresh(); // 🔥 Автоматическое обновление после загрузки Excel
     }catch(err:any){ alert(err?.message||"Failed to read Excel"); } finally{ e.target.value=""; }
   }
 
