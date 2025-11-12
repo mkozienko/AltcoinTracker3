@@ -100,41 +100,134 @@ async function geckoSearchId(symbol:string):Promise<string|null>{
   try{ const q=encodeURIComponent(symbol); const r=await fetch(`https://api.coingecko.com/api/v3/search?query=${q}`); if(!r.ok) return null; const js=await r.json(); const exact=js?.coins?.find((c:any)=>(c.symbol||"").toUpperCase()===symbol.toUpperCase()); return exact?.id||null; }catch{ return null; }
 }
 
-// === исправленный пакетный запрос ===
-async function fetchPrices(symbols:string[], map:MapDict){
+async function fetchPrices(symbols: string[], baseMap: MapDict) {
+  const results: Record<string, PriceEntry> = {};
   const userMap = loadUserMap();
-  const idMap:Record<string,string> = {};
 
-  // Используем только сохранённые соответствия
-  for(const sym of symbols){
-    const fromUser=userMap[sym]; const fromBase=map[sym];
-    if(fromUser) idMap[sym]=fromUser;
-    else if(fromBase) idMap[sym]=fromBase;
-  }
+  // === Шаг 1. Построить итоговую карту symbol → geckoId ===
+  const symbolToId: Record<string, string> = {};
 
-  const uniqueIds = Array.from(new Set(Object.values(idMap).filter(Boolean)));
-  if(uniqueIds.length===0) return {} as Record<string,PriceEntry>;
+  for (const sym of symbols) {
+    if (!sym) continue;
 
-  const chunkSize=150;
-  const chunks:string[][]=[]; for(let i=0;i<uniqueIds.length;i+=chunkSize) chunks.push(uniqueIds.slice(i,i+chunkSize));
-  const results:Record<string,PriceEntry>={};
+    // 1) сначала смотрим в userMap
+    if (userMap[sym]) {
+      symbolToId[sym] = userMap[sym];
+      continue;
+    }
 
-  for(const ch of chunks){
-    const url=`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ch.join(","))}&vs_currencies=usd&include_24hr_change=true`;
-    const r=await fetch(url); if(!r.ok) continue; const js=await r.json();
-    for(const [gid,obj] of Object.entries<any>(js)){
-      const price=typeof obj?.usd==="number"? obj.usd:null;
-      const chg=typeof obj?.usd_24h_change==="number"? obj.usd_24h_change:null;
-      for(const [sym,mapped] of Object.entries(idMap)){ if(mapped===gid) results[sym]={price, ch:chg, id:gid}; }
+    // 2) затем в baseMap (coingecko_map.json)
+    if (baseMap[sym]) {
+      symbolToId[sym] = baseMap[sym];
+      continue;
+    }
+
+    // 3) иначе делаем поиск CoinGecko (редко)
+    const found = await geckoSearchId(sym);
+    if (found) {
+      symbolToId[sym] = found;
+      userMap[sym] = found;
     }
   }
 
-  for(const sym of symbols)
-    if(!results[sym])
-      results[sym]={price:null, ch:null, id:idMap[sym]||"—"};
+  // сохранить найденные ID
+  saveUserMap(userMap);
+
+  // === Шаг 2. Пакетный запрос к CoinGecko ===
+  const uniqueIds = Array.from(new Set(Object.values(symbolToId)));
+  if (uniqueIds.length === 0) return results;
+
+  const chunkSize = 170;
+  let geckoSuccess = false;
+  const geckoReturns: Record<string, PriceEntry> = {};
+
+  try {
+    for (let i = 0; i < uniqueIds.length; i += chunkSize) {
+      const chunk = uniqueIds.slice(i, i + chunkSize);
+      const url =
+        `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(chunk.join(","))}` +
+        `&vs_currencies=usd&include_24hr_change=true`;
+
+      const r = await fetch(url);
+      if (!r.ok) throw new Error("Gecko failed");
+      const js = await r.json();
+      geckoSuccess = true;
+
+      for (const [gid, obj] of Object.entries<any>(js)) {
+        const price = typeof obj?.usd === "number" ? obj.usd : null;
+        const ch = typeof obj?.usd_24h_change === "number" ? obj.usd_24h_change : null;
+
+        for (const [sym, mapped] of Object.entries(symbolToId)) {
+          if (mapped === gid) {
+            geckoReturns[sym] = { price, ch, id: gid };
+          }
+        }
+      }
+    }
+  } catch {
+    geckoSuccess = false;
+  }
+
+  // если CoinGecko сработал — возвращаем его
+  if (geckoSuccess) {
+    for (const s of symbols) {
+      results[s] = geckoReturns[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
+    }
+    return results;
+  }
+
+  // === Шаг 3. Fallback: CoinPaprika ===
+  const paprikaResults = await fetchCoinPaprika(symbols, symbolToId);
+
+  // собрать итог
+  for (const s of symbols) {
+    results[s] = paprikaResults[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
+  }
 
   return results;
 }
+
+async function fetchCoinPaprika(symbols: string[], symbolToId: Record<string, string>) {
+  const out: Record<string, PriceEntry> = {};
+
+  try {
+    const url = "https://api.coinpaprika.com/v1/tickers";
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("Paprika failed");
+    const data = await r.json();
+
+    for (const sym of symbols) {
+      const id = symbolToId[sym];
+      if (!id) continue;
+
+      const match = data.find((x: any) => x.id === id || x.symbol.toUpperCase() === sym);
+
+      if (!match) continue;
+
+      out[sym] = {
+        price: match?.quotes?.USD?.price ?? null,
+        ch: match?.quotes?.USD?.percent_change_24h ?? null,
+        id
+      };
+    }
+  } catch (err) {
+    console.warn("CoinPaprika fallback failed", err);
+  }
+
+  return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 async function readSummarySheet(file:File):Promise<Row[]>{
   const XLSX = await import("xlsx");
