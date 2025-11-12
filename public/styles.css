@@ -1,0 +1,27 @@
+
+:root{ --bg:#ffffff; --fg:#111; --muted:#6b7280; --border:#e5e7eb; --accent:#2563eb; --bad:#b91c1c; --good:#15803d; }
+.dark{ --bg:#0f1115; --fg:#e5e7eb; --muted:#9ca3af; --border:#1f2937; --accent:#60a5fa; --bad:#ef4444; --good:#34d399; }
+html,body{ background:var(--bg); color:var(--fg); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:0; }
+.wrap{ max-width:1100px; margin:24px auto; padding:0 16px; }
+header{ display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:12px; }
+h1{ font-size:22px; font-weight:600; margin:0; }
+.controls{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.btn{ border:1px solid var(--border); background:var(--bg); color:var(--fg); border-radius:8px; padding:8px 12px; cursor:pointer; }
+.btn.primary{ background:var(--accent); color:white; border-color:var(--accent); }
+.btn:hover{ opacity:.9 }
+input[type="text"], input[type="number"]{ border:1px solid var(--border); background:var(--bg); color:var(--fg);
+  border-radius:8px; padding:8px 10px; }
+label.checkbox{ display:flex; align-items:center; gap:6px; color:var(--muted); font-size:14px; }
+table{ border-collapse:collapse; width:100%; }
+thead th{ text-align:left; font-weight:600; color:var(--muted); font-size:12px; padding:10px 8px; border-bottom:1px solid var(--border); }
+tbody td{ padding:10px 8px; border-bottom:1px solid var(--border); font-size:14px; }
+tbody tr:hover{ background:rgba(0,0,0,.03); }
+.muted{ color:var(--muted); font-size:12px; }
+.num{ font-variant-numeric: tabular-nums; text-align:right; }
+.plpos{ color:var(--good); }
+.plneg{ color:var(--bad); }
+.modal{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:16px; }
+.modal-ctr{ background:var(--bg); color:var(--fg); border:1px solid var(--border); border-radius:12px; width:min(100%,1000px); overflow:hidden; }
+.modal-h{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); }
+.modal-b{ padding:8px; height:600px; }
+footer{ margin-top:16px; color:var(--muted); font-size:12px; }

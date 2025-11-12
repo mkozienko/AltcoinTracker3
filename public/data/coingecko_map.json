@@ -1,0 +1,11 @@
+{
+  "ADA": "cardano",
+  "ETH": "ethereum",
+  "BTC": "bitcoin",
+  "HFT": "hashflow",
+  "DYDX": "dydx",
+  "MATIC": "polygon-pos",
+  "MATICPOL": "polygon-pos",
+  "FLOW": "flow",
+  "ROOT": "rootstock"
+}
