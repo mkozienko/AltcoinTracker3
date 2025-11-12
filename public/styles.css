@@ -177,3 +177,54 @@ footer {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* === ЧИСТЫЙ СТАРЫЙ СТИЛЬ ЗАГОЛОВКА ТАБЛИЦЫ === */
+thead th {
+  background: #f7f7f7;      /* серый фон как раньше */
+  font-weight: 600;         /* жирные буквы */
+  color: var(--fg);
+  border: none;             /* убираем все рамки вокруг */
+  border-bottom: 2px solid var(--border); /* разделительная линия под заголовком */
+  padding: 10px 8px;
+  font-size: 13px;
+  text-transform: none;
+  border-radius: 0 !important;  /* убираем скругления */
+}
+
+/* Убираем капсулы/рамки вокруг заголовков */
+thead th button,
+thead th select {
+  all: unset;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+}
+
+/* Выровняем таблицу */
+table {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  border-collapse: collapse;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Строки */
+tbody td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 8px;
+  font-size: 14px;
+}
+
+/* Эффект при наведении */
+tbody tr:hover {
+  background: rgba(0,0,0,.03);
+  transition: background 0.2s ease;
+}
+
+/* Для тёмной темы */
+.dark thead th {
+  background: #1e1e1e;
+  color: #e5e7eb;
+  border-bottom: 2px solid #2d2d2d;
+}
