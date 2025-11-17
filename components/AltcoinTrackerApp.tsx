@@ -268,6 +268,12 @@ export default function AltcoinTrackerApp(){
      }, []);
 
   async function refresh(){
+
+  // === Предохранитель: карта ещё не загружена ===
+  if (!map || Object.keys(map).length === 0) {
+    console.warn("Map is not loaded yet — skipping refresh");
+    return;
+  }
     const symbols=Array.from(new Set(rows.map(r=>normalizeSymbol(r.token))));
     console.log("MAP:", map);
     console.log("symbols:", symbols);
