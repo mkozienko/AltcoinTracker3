@@ -258,10 +258,19 @@ export default function AltcoinTrackerApp(){
   const [tvSymbol,setTvSymbol]=useState<string|null>(null); const tvRef=React.useRef<HTMLDivElement>(null);
 
   useEffect(()=>{ localStorage.setItem(LS_ROWS, JSON.stringify(rows)); },[rows]);
-  useEffect(()=>{ (async()=> setMap(await loadBaseMap()))(); },[]);
+
+  useEffect(() => {
+  (async () => {
+    const m = await loadBaseMap();
+    console.log("MAP:", m);  // ← ЛОГ ДЛЯ ПРОВЕРКИ
+    setMap(m);
+        })();
+     }, []);
 
   async function refresh(){
     const symbols=Array.from(new Set(rows.map(r=>normalizeSymbol(r.token))));
+    console.log("MAP:", map);
+    console.log("symbols:", symbols);
     const p=await fetchPrices(symbols,map);
     setPrices(p);
   }
