@@ -14,117 +14,110 @@ function numOrNull(v:any){ const n = parseFloat(v); return Number.isFinite(n)? n
 function fmt(n:number|null|undefined, d=2){ if(n==null || !Number.isFinite(n as number)) return "—"; return Number(n).toFixed(d); }
 function colorPL(v:number|null){ if(v==null) return ""; return v>=0? "plpos":"plneg"; }
 
+/* ---------------------------------------------
+   SYMBOL NORMALIZATION
+---------------------------------------------- */
 function normalizeSymbol(raw: string): string {
   if (!raw) return "";
 
-  // убрать скобки, пробелы, мусор
-  let s = raw.toUpperCase().replace(/[\s()]/g, "").trim();
+  let s = raw.toUpperCase().trim();
 
-  // убрать только ХВОСТ (если он один)
-  // Пример: ADAUSDT → ADA, ARB/USD → ARB
-  s = s.replace(/(\/?USDT|\/?USD)$/i, "");
+  s = s.replace(/\(.*?\)/g, ""); // убрать содержимое скобок
+  s = s.replace(/\s+/g, "");     // убрать пробелы
 
-  // исключения для тикеров, у которых символ ≠ id на CoinGecko
-  const exceptions: Record<string, string> = {
-    "1INCH": "1INCH",
-    "AAVE": "AAVE",
-    "ADA": "ADA",
-    "ALGO": "ALGO",
-    "APE": "APE",
-    "APT": "APT",
-    "ARB": "ARB",
-    "ATOM": "ATOM",
-    "AVAX": "AVAX",
-    "BAND": "BAND",
-    "BICO": "BICO",
-    "BTC": "BTC",
-    "CHZ": "CHZ",
-    "DOGE": "DOGE",
-    "DOT": "DOT",
-    "EGLD": "EGLD",
-    "ETH": "ETH",
-    "FIL": "FIL",
-    "FTM": "FTM",
-    "HBAR": "HBAR",
-    "IMX": "IMX",
-    "ICP": "ICP",
-    "LDO": "LDO",
-    "LINK": "LINK",
-    "MATIC": "MATIC",
-    "NEAR": "NEAR",
-    "OP": "OP",
-    "QNT": "QNT",
-    "RUNE": "RUNE",
-    "SAND": "SAND",
-    "SFP": "SFP",
-    "SOL": "SOL",
-    "STX": "STX",
-    "SXP": "SXP",
-    "TRX": "TRX",
-    "UNI": "UNI",
-    "VET": "VET",
-    "XLM": "XLM",
-    "XRP": "XRP",
-    "XTZ": "XTZ",
-    "HFT": "HFT",
-    "FXS": "FXS",
-    "LRC": "LRC",
-    "CVX": "CVX",
-    "ANKR": "ANKR",
-    "ROOK": "ROOK",
-  };
+  while (s.endsWith("USDT") || s.endsWith("USD")) {
+    if (s.endsWith("USDT")) s = s.slice(0, -4);
+    else if (s.endsWith("USD")) s = s.slice(0, -3);
+  }
 
-  if (exceptions[s]) return exceptions[s];
+  s = s.replace(/[^A-Z0-9]/g, ""); // убрать мусор
 
   return s;
 }
 
-
-
-
+/* ---------------------------------------------
+   THEME + TRADINGVIEW
+---------------------------------------------- */
 function useTheme(){
   const [theme,setTheme] = useState<string>(()=>localStorage.getItem(LS_THEME)||"light");
-
-  useEffect(()=>{ document.documentElement.classList.toggle("dark", theme==="dark"); localStorage.setItem(LS_THEME, theme); },[theme]);
-
+  useEffect(()=>{ 
+    document.documentElement.classList.toggle("dark", theme==="dark"); 
+    localStorage.setItem(LS_THEME, theme); 
+  },[theme]);
   return {theme,setTheme};
 }
+
 function useTradingViewScript(){
-  useEffect(()=>{ const id="tv-script"; if(document.getElementById(id)) return; const s=document.createElement("script"); s.id=id; s.src="https://s3.tradingview.com/tv.js"; s.async=true; document.body.appendChild(s); },[]);
+  useEffect(()=>{
+    const id="tv-script"; 
+    if(document.getElementById(id)) return;
+    const s=document.createElement("script"); 
+    s.id=id; 
+    s.src="https://s3.tradingview.com/tv.js"; 
+    s.async=true; 
+    document.body.appendChild(s); 
+  },[]);
 }
 
+/* ---------------------------------------------
+   MAP LOADERS
+---------------------------------------------- */
 type MapDict = Record<string,string>;
-async function loadBaseMap():Promise<MapDict>{ try{ const r=await fetch("/data/coingecko_map.json",{cache:"force-cache"}); if(!r.ok) return {}; return await r.json(); }catch{ return {}; } }
-function loadUserMap():MapDict{ try{ const raw=localStorage.getItem(LS_USER_MAP); return raw? JSON.parse(raw):{}; }catch{ return {}; } }
-function saveUserMap(m:MapDict){ localStorage.setItem(LS_USER_MAP, JSON.stringify(m)); }
 
-async function geckoSearchId(symbol:string):Promise<string|null>{
-  try{ const q=encodeURIComponent(symbol); const r=await fetch(`https://api.coingecko.com/api/v3/search?query=${q}`); if(!r.ok) return null; const js=await r.json(); const exact=js?.coins?.find((c:any)=>(c.symbol||"").toUpperCase()===symbol.toUpperCase()); return exact?.id||null; }catch{ return null; }
+async function loadBaseMap():Promise<MapDict>{ 
+  try{ 
+    const r=await fetch("/data/coingecko_map.json",{cache:"force-cache"}); 
+    if(!r.ok) return {}; 
+    return await r.json(); 
+  }catch{ return {}; } 
 }
 
+function loadUserMap():MapDict{ 
+  try{ const raw=localStorage.getItem(LS_USER_MAP); return raw? JSON.parse(raw):{}; }catch{ return {}; } 
+}
+function saveUserMap(m:MapDict){ 
+  localStorage.setItem(LS_USER_MAP, JSON.stringify(m)); 
+}
+
+/* ---------------------------------------------
+   COINGECKO SEARCH API
+---------------------------------------------- */
+async function geckoSearchId(symbol:string):Promise<string|null>{
+  try{ 
+    const q=encodeURIComponent(symbol); 
+    const r=await fetch(`https://api.coingecko.com/api/v3/search?query=${q}`);
+    if(!r.ok) return null;
+
+    const js=await r.json();
+    const exact=js?.coins?.find((c:any)=>(c.symbol||"").toUpperCase()===symbol.toUpperCase());
+    return exact?.id||null; 
+  }catch{ 
+    return null; 
+  }
+}
+
+/* ---------------------------------------------
+   PRICE FETCHER
+---------------------------------------------- */
 async function fetchPrices(symbols: string[], baseMap: MapDict) {
   const results: Record<string, PriceEntry> = {};
   const userMap = loadUserMap();
 
-  // === Шаг 1. Построить итоговую карту symbol → geckoId ===
   const symbolToId: Record<string, string> = {};
 
   for (const sym of symbols) {
     if (!sym) continue;
 
-    // 1) сначала смотрим в userMap
     if (userMap[sym]) {
       symbolToId[sym] = userMap[sym];
       continue;
     }
 
-    // 2) затем в baseMap (coingecko_map.json)
     if (baseMap[sym]) {
       symbolToId[sym] = baseMap[sym];
       continue;
     }
 
-    // 3) иначе делаем поиск CoinGecko (редко)
     const found = await geckoSearchId(sym);
     if (found) {
       symbolToId[sym] = found;
@@ -132,10 +125,8 @@ async function fetchPrices(symbols: string[], baseMap: MapDict) {
     }
   }
 
-  // сохранить найденные ID
   saveUserMap(userMap);
 
-  // === Шаг 2. Пакетный запрос к CoinGecko ===
   const uniqueIds = Array.from(new Set(Object.values(symbolToId)));
   if (uniqueIds.length === 0) return results;
 
@@ -170,7 +161,6 @@ async function fetchPrices(symbols: string[], baseMap: MapDict) {
     geckoSuccess = false;
   }
 
-  // если CoinGecko сработал — возвращаем его
   if (geckoSuccess) {
     for (const s of symbols) {
       results[s] = geckoReturns[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
@@ -178,150 +168,227 @@ async function fetchPrices(symbols: string[], baseMap: MapDict) {
     return results;
   }
 
-  // === Шаг 3. Fallback: CoinPaprika ===
-  const paprikaResults = await fetchCoinPaprika(symbols, symbolToId);
-
-  // собрать итог
-  for (const s of symbols) {
-    results[s] = paprikaResults[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
-  }
-
   return results;
 }
 
-async function fetchCoinPaprika(symbols: string[], symbolToId: Record<string, string>) {
-  const out: Record<string, PriceEntry> = {};
-
-  try {
-    const url = "https://api.coinpaprika.com/v1/tickers";
-    const r = await fetch(url);
-    if (!r.ok) throw new Error("Paprika failed");
-    const data = await r.json();
-
-    for (const sym of symbols) {
-      const id = symbolToId[sym];
-      if (!id) continue;
-
-      const match = data.find((x: any) => x.id === id || x.symbol.toUpperCase() === sym);
-
-      if (!match) continue;
-
-      out[sym] = {
-        price: match?.quotes?.USD?.price ?? null,
-        ch: match?.quotes?.USD?.percent_change_24h ?? null,
-        id
-      };
-    }
-  } catch (err) {
-    console.warn("CoinPaprika fallback failed", err);
-  }
-
-  return out;
-}
-
+/* ---------------------------------------------
+   READ EXCEL SUMMARY
+---------------------------------------------- */
 async function readSummarySheet(file:File):Promise<Row[]>{
   const XLSX = await import("xlsx");
   const data = await file.arrayBuffer();
-  try{ const b64=btoa(String.fromCharCode(...new Uint8Array(data))); localStorage.setItem(LS_XLSX_B64,b64); }catch{}
-  const wb=XLSX.read(data,{type:"array"}); const sheet=wb.Sheets["Summary"]||wb.Sheets[wb.SheetNames[0]];
+  try{ 
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(data))); 
+    localStorage.setItem(LS_XLSX_B64,b64); 
+  }catch{}
+
+  const wb = XLSX.read(data,{type:"array"}); 
+  const sheet = wb.Sheets["Summary"] || wb.Sheets[wb.SheetNames[0]];
   if(!sheet) throw new Error("Sheet 'Summary' not found");
-  const rows:any[][]=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
-  const out:Row[]=[];
-  for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r) continue;
-    const A=String(r[0]??"").trim(); if(!A) continue; const B=parseFloat(r[1]); const C=r[2]; const D=parseFloat(r[3]); const E=r[4];
-    const spent=numOrNull(C)??numOrNull(E)??null; if(!Number.isFinite(B)) continue; out.push({token:A, buy:B, qty:Number.isFinite(D)?D:0, spent});
+
+  const rows:any[][] = XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
+  const out:Row[] = [];
+
+  for(let i=1;i<rows.length;i++){ 
+    const r=rows[i]; 
+    if(!r) continue;
+
+    const token = String(r[0] ?? "").trim(); 
+    if(!token) continue;
+
+    const buy = parseFloat(r[1]);
+    const qty = Number.isFinite(r[2]) ? r[2] : 0;
+    const spent = numOrNull(r[2]) ?? numOrNull(r[4]) ?? null;
+
+    if(!Number.isFinite(buy)) continue;
+    out.push({token, buy, qty, spent});
   }
+
   return out;
 }
 
+/* ---------------------------------------------
+   MAIN COMPONENT
+---------------------------------------------- */
+
 export default function AltcoinTrackerApp(){
-  const {theme,setTheme}=useTheme();
+  const {theme,setTheme} = useTheme();
   useTradingViewScript();
 
-  const [rows,setRows]=useState<Row[]>(()=>{
-    try{ const raw=localStorage.getItem(LS_ROWS); if(raw) return JSON.parse(raw);}catch{}
-    return [{token:"ADA/USDT", buy:0.42, qty:100, spent:42},{token:"HFT( HFTUSDT )", buy:0.72, qty:200, spent:144}];
+  const [rows,setRows] = useState<Row[]>(()=>{
+    try{ 
+      const raw=localStorage.getItem(LS_ROWS); 
+      if(raw) return JSON.parse(raw);
+    }catch{}
+    return [{token:"ADA/USDT", buy:0.42, qty:100, spent:42}];
   });
-  const [search,setSearch]=useState(""); const [profitOnly,setProfitOnly]=useState(false);
-  const [sort,setSort]=useState<{key:string,dir:"asc"|"desc"}>({key:"token",dir:"asc"});
-  const [prices,setPrices]=useState<Record<string,PriceEntry>>({}); const [map,setMap]=useState<MapDict>({});
-  const [tvSymbol,setTvSymbol]=useState<string|null>(null); const tvRef=React.useRef<HTMLDivElement>(null);
 
-  useEffect(()=>{ localStorage.setItem(LS_ROWS, JSON.stringify(rows)); },[rows]);
+  const [search,setSearch] = useState("");
+  const [profitOnly,setProfitOnly] = useState(false);
+  const [sort,setSort] = useState({key:"token",dir:"asc" as const});
+  const [prices,setPrices] = useState<Record<string,PriceEntry>>({});
+  const [map,setMap] = useState<MapDict>({});
+  const [tvSymbol,setTvSymbol] = useState<string|null>(null);
 
+  /* SAVE ROWS */
+  useEffect(()=>{ 
+    localStorage.setItem(LS_ROWS, JSON.stringify(rows)); 
+  },[rows]);
+
+  /* LOAD BASEMAP */
   useEffect(() => {
-  (async () => {
-    const m = await loadBaseMap();
-    console.log("MAP:", m);  // ← ЛОГ ДЛЯ ПРОВЕРКИ
-    setMap(m);
-        })();
-     }, []);
+    (async () => {
+      const m = await loadBaseMap();
+      console.log("MAP LOADED:", m);
+      setMap(m);
+    })();
+  }, []);
 
-
+  /* AUTO REFRESH AFTER MAP LOADED */
   useEffect(() => {
-  if (Object.keys(map).length > 0) {
-    console.log("Auto-refresh после загрузки MAP");
-    refresh();  
+    if (Object.keys(map).length > 0) {
+      console.log("AUTO REFRESH — MAP READY");
+      refresh();
     }
   }, [map]);
 
+  /* REFRESH FUNCTION */
   async function refresh(){
+    console.log("REFRESH() STARTED");
 
-  // === Предохранитель: карта ещё не загружена ===
-  if (!map || Object.keys(map).length === 0) {
-    console.warn("Map is not loaded yet — skipping refresh");
-    return;
-  }
-    const symbols=Array.from(new Set(rows.map(r=>normalizeSymbol(r.token))));
-    console.log("MAP:", map);
-    console.log("symbols:", symbols);
-    const p=await fetchPrices(symbols,map);
+    if (!map || Object.keys(map).length === 0) {
+      console.warn("Map not loaded — skipping refresh");
+      return;
+    }
+
+    const symbols = Array.from(new Set(rows.map(r=>normalizeSymbol(r.token))));
+    console.log("Symbols:", symbols);
+
+    const p = await fetchPrices(symbols,map);
     setPrices(p);
   }
 
+  /* UPLOAD EXCEL */
+  async function onUploadXlsx(e:React.ChangeEvent<HTMLInputElement>){
+    const f=e.target.files?.[0]; 
+    if(!f) return;
+
+    try{
+      const parsed=await readSummarySheet(f); 
+      setRows(parsed);
+
+      const symbols = Array.from(new Set(parsed.map(
+        r=>normalizeSymbol(r.token)
+      )));
+
+      const userMap = loadUserMap();
+
+      for(const s of symbols){ 
+        if(userMap[s]) continue;
+        const found = await geckoSearchId(s);
+        if(found) userMap[s] = found;
+      }
+      saveUserMap(userMap);
+
+      // ❗ refresh НЕ вызываем здесь!
+    }
+    catch(err:any){ 
+      alert(err?.message || "Failed to read Excel"); 
+    } 
+    finally{ 
+      e.target.value = ""; 
+    }
+  }
+
+  /* TABLE */
   const table = useMemo(()=>{
     const enriched = rows.map(r=>{
-      const sym=normalizeSymbol(r.token); const pe=prices[sym]; const cur=pe?.price ?? null;
-      const buy=r.buy; const qty=r.qty; const spent=r.spent ?? buy*qty;
-      const curVal=cur!=null?cur*qty:null; const pl=curVal!=null?curVal-spent:null; const plPct=cur!=null?((cur-buy)/buy)*100:null;
-      const ch=pe?.ch ?? null; return {sym,row:r,cur,buy,qty,spent,curVal,pl,plPct,ch};
+      const sym=normalizeSymbol(r.token); 
+      const pe=prices[sym]; 
+      const cur=pe?.price ?? null;
+      const buy=r.buy; 
+      const qty=r.qty; 
+      const spent=r.spent ?? buy*qty;
+      const curVal=cur!=null?cur*qty:null; 
+      const pl=curVal!=null?curVal-spent:null; 
+      const plPct=cur!=null?((cur-buy)/buy)*100:null;
+      const ch=pe?.ch ?? null;
+
+      return {sym,row:r,cur,buy,qty,spent,curVal,pl,plPct,ch};
     });
-    const q=search.trim().toUpperCase(); let list=enriched.filter(x=>!q||x.sym.includes(q)||x.row.token.toUpperCase().includes(q));
-    if(profitOnly) list=list.filter(x=>(x.pl??-Infinity)>0);
-    const getter=(x:any)=>{ switch(sort.key){ case "token": return x.sym; case "buy": return x.buy; case "cur": return x.cur??-Infinity; case "qty": return x.qty; case "spent": return x.spent; case "curVal": return x.curVal??-Infinity; case "pl": return x.pl??-Infinity; case "plPct": return x.plPct??-Infinity; default: return x.sym; } };
-    list.sort((a,b)=>{ const av:any=getter(a), bv:any=getter(b); if(typeof av==="string"||typeof bv==="string"){ const c=String(av).localeCompare(String(bv)); return sort.dir==="asc"?c:-c; } const c=(av as number)-(bv as number); return sort.dir==="asc"?c:-c; });
+
+    const q = search.trim().toUpperCase();
+    let list = enriched.filter(x =>
+      !q || x.sym.includes(q) || x.row.token.toUpperCase().includes(q)
+    );
+
+    if(profitOnly) list = list.filter(x => (x.pl ?? -Infinity) > 0);
+
+    const getter=(x:any)=>{
+      switch(sort.key){
+        case "token": return x.sym;
+        case "buy": return x.buy;
+        case "cur": return x.cur??-Infinity;
+        case "qty": return x.qty;
+        case "spent": return x.spent;
+        case "curVal": return x.curVal??-Infinity;
+        case "pl": return x.pl??-Infinity;
+        case "plPct": return x.plPct??-Infinity;
+        default: return x.sym;
+      }
+    };
+
+    list.sort((a,b)=>{
+      const av:any=getter(a), bv:any=getter(b);
+      if(typeof av==="string"||typeof bv==="string"){
+        const c=String(av).localeCompare(String(bv)); 
+        return sort.dir==="asc"?c:-c;
+      }
+      const c=(av as number)-(bv as number); 
+      return sort.dir==="asc"?c:-c;
+    });
+
     return list;
   },[rows,prices,search,profitOnly,sort]);
 
-  async function onUploadXlsx(e:React.ChangeEvent<HTMLInputElement>){
-    const f=e.target.files?.[0]; if(!f) return;
-    try{
-      const parsed=await readSummarySheet(f); setRows(parsed);
-      const symbols=Array.from(new Set(parsed.map(r=>normalizeSymbol(r.token)))); const userMap=loadUserMap();
-      for(const s of symbols){ if(userMap[s]) continue; const found=await geckoSearchId(s); if(found) userMap[s]=found; }
-      saveUserMap(userMap);
-      await refresh(); // 🔥 Автоматическое обновление после загрузки Excel
-    }catch(err:any){ alert(err?.message||"Failed to read Excel"); } finally{ e.target.value=""; }
+  /* RENDER */
+  function onSort(key:string){
+    setSort(s=> s.key===key
+      ? {key, dir:s.dir==="asc"?"desc":"asc"}
+      : {key, dir:"asc"});
   }
-
-  function onSort(key:string){ setSort(s=> s.key===key? {key, dir:s.dir==="asc"?"desc":"asc"} : {key, dir:"asc"}); }
 
   return (
     <div className="wrap">
       <header>
         <h1>Altcoin Tracker</h1>
         <div className="controls">
-          <button className="btn" onClick={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?"🌞 Light":"🌙 Dark"}</button>
+          <button className="btn" onClick={()=>setTheme(theme==="dark"?"light":"dark")}>
+            {theme==="dark"?"🌞 Light":"🌙 Dark"}
+          </button>
         </div>
       </header>
 
       <div className="controls" style={{marginBottom:8}}>
         <button className="btn primary" onClick={refresh}>Refresh prices</button>
-        <label className="checkbox"><input type="checkbox" checked={profitOnly} onChange={e=>setProfitOnly(e.target.checked)} /> Profit only</label>
-        <input type="text" placeholder="Search token..." value={search} onChange={e=>setSearch(e.target.value)} />
+        <label className="checkbox">
+          <input type="checkbox" 
+            checked={profitOnly} 
+            onChange={e=>setProfitOnly(e.target.checked)} 
+          /> Profit only
+        </label>
+
+        <input type="text" 
+          placeholder="Search token..." 
+          value={search} 
+          onChange={e=>setSearch(e.target.value)} />
+
         <label className="btn" style={{position:"relative"}}>
           Upload Excel (Summary)
-          <input type="file" accept=".xlsx,.xls" style={{position:"absolute",inset:0,opacity:0}} onChange={onUploadXlsx} />
+          <input type="file" accept=".xlsx,.xls" 
+            style={{position:"absolute",inset:0,opacity:0}} 
+            onChange={onUploadXlsx} 
+          />
         </label>
       </div>
 
@@ -339,6 +406,7 @@ export default function AltcoinTrackerApp(){
             <Th label="P/L %" sortKey="plPct" sort={sort} onSort={onSort} right />
           </tr>
         </thead>
+
         <tbody>
           {table.map((t, idx)=>(
             <tr key={idx} onClick={()=>setTvSymbol(t.sym+"USDT")} style={{cursor:"pointer"}}>
@@ -356,37 +424,39 @@ export default function AltcoinTrackerApp(){
               <td className="num">{fmt(t.spent,2)}</td>
               <td className="num">{fmt(t.curVal,2)}</td>
               <td className={cx("num", colorPL(t.pl))}>{fmt(t.pl,2)}</td>
-              <td className={cx("num", colorPL(t.plPct))}>{t.pl!=null? fmt(t.plPct,2)+"%":"—"}</td>
+              <td className={cx("num", colorPL(t.plPct))}>
+                {t.pl!=null? fmt(t.plPct,2)+"%":"—"}
+              </td>
             </tr>
           ))}
-          {table.length===0 && <tr><td className="muted" colSpan={9}>No rows. Upload Excel (Summary) or clear filters.</td></tr>}
+
+          {table.length===0 && (
+            <tr>
+              <td className="muted" colSpan={9}>
+                No rows. Upload Excel (Summary) or clear filters.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
-      <footer>Click a row to open a TradingView chart (BINANCE: SYMBOLUSDT). Themes are synchronized.</footer>
-
-      {tvSymbol && (
-        <div className="modal" onClick={()=>setTvSymbol(null)}>
-          <div className="modal-ctr" onClick={e=>e.stopPropagation()}>
-            <div className="modal-h">
-              <div style={{fontWeight:600}}>{tvSymbol} — TradingView</div>
-              <button className="btn" onClick={()=>setTvSymbol(null)}>Close</button>
-            </div>
-            <div className="modal-b">
-              <div id="tv_container" ref={tvRef} style={{width:"100%", height:"100%"}} />
-            </div>
-          </div>
-        </div>
-      )}
+      <footer>
+        Click a row to open a TradingView chart (BINANCE: SYMBOLUSDT). Themes are synchronized.
+      </footer>
     </div>
   );
 }
 
-function Th({ label, sortKey, sort, onSort, right }:{ label:string; sortKey:string; sort:{key:string; dir:"asc"|"desc"}; onSort:(k:string)=>void; right?:boolean }){
+function Th({ label, sortKey, sort, onSort, right }:
+  { label:string; sortKey:string; sort:{key:string; dir:"asc"|"desc"}; onSort:(k:string)=>void; right?:boolean }){
+  
   const is = sort.key===sortKey;
+
   return (
     <th className={cx(right && "num")}>
-      <button className="btn" style={{padding:"4px 8px"}} onClick={()=>onSort(sortKey)}>
+      <button className="btn" 
+        style={{padding:"4px 8px"}} 
+        onClick={()=>onSort(sortKey)}>
         {label} {is? (sort.dir==="asc"?"▾":"▴"):""}
       </button>
     </th>
