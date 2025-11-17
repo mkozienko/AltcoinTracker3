@@ -84,7 +84,9 @@ function normalizeSymbol(raw: string): string {
 
 function useTheme(){
   const [theme,setTheme] = useState<string>(()=>localStorage.getItem(LS_THEME)||"light");
+
   useEffect(()=>{ document.documentElement.classList.toggle("dark", theme==="dark"); localStorage.setItem(LS_THEME, theme); },[theme]);
+
   return {theme,setTheme};
 }
 function useTradingViewScript(){
@@ -217,18 +219,6 @@ async function fetchCoinPaprika(symbols: string[], symbolToId: Record<string, st
   return out;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 async function readSummarySheet(file:File):Promise<Row[]>{
   const XLSX = await import("xlsx");
   const data = await file.arrayBuffer();
@@ -266,6 +256,14 @@ export default function AltcoinTrackerApp(){
     setMap(m);
         })();
      }, []);
+
+
+  useEffect(() => {
+  if (Object.keys(map).length > 0) {
+    console.log("Auto-refresh после загрузки MAP");
+    refresh();  
+    }
+  }, [map]);
 
   async function refresh(){
 
