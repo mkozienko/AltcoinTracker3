@@ -14,6 +14,7 @@ function numOrNull(v:any){ const n = parseFloat(v); return Number.isFinite(n)? n
 function fmt(n:number|null|undefined, d=2){ if(n==null || !Number.isFinite(n as number)) return "—"; return Number(n).toFixed(d); }
 function colorPL(v:number|null){ if(v==null) return ""; return v>=0? "plpos":"plneg"; }
 
+
 /* ---------------------------------------------
    SYMBOL NORMALIZATION
 ---------------------------------------------- */
