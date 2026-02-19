@@ -225,7 +225,7 @@ export default function AltcoinTrackerApp(){
 
   const [search,setSearch] = useState("");
   const [profitOnly,setProfitOnly] = useState(false);
-  const [sort,setSort] = useState({key:"token",dir:"asc" as const});
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({key: "token", dir: "asc",});
   const [prices,setPrices] = useState<Record<string,PriceEntry>>({});
   const [map,setMap] = useState<MapDict>({});
   const [tvSymbol,setTvSymbol] = useState<string|null>(null);
