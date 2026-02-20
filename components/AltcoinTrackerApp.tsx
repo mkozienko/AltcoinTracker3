@@ -10,7 +10,12 @@ type Row = { token: string; buy: number; qty: number; spent?: number | null };
 type PriceEntry = { price: number | null; ch: number | null; id: string };
 
 function cx(...a:(string|false|undefined|null)[]){ return a.filter(Boolean).join(" "); }
-function numOrNull(v:any){ const n = parseFloat(v); return Number.isFinite(n)? n : null; }
+
+function numOrNull(v:any){
+  if (v == null) return null;
+  const n = parseFloat(String(v).replace(/,/g,"").trim());
+  return Number.isFinite(n) ? n : null;
+}
 function fmt(n:number|null|undefined, d=2){ if(n==null || !Number.isFinite(n as number)) return "—"; return Number(n).toFixed(d); }
 function colorPL(v:number|null){ if(v==null) return ""; return v>=0? "plpos":"plneg"; }
 
@@ -38,26 +43,48 @@ function normalizeSymbol(raw: string): string {
 /* ---------------------------------------------
    THEME + TRADINGVIEW
 ---------------------------------------------- */
+
 function useTheme(){
-  const [theme,setTheme] = useState<string>(()=>localStorage.getItem(LS_THEME)||"light");
+  const [theme,setTheme] = useState<string>(() => {
+    if (typeof window === "undefined") return "light";
+    return localStorage.getItem(LS_THEME) || "light";
+  });
+
   useEffect(()=>{ 
     document.documentElement.classList.toggle("dark", theme==="dark"); 
     localStorage.setItem(LS_THEME, theme); 
   },[theme]);
+
   return {theme,setTheme};
 }
-
 function useTradingViewScript(){
+  const [ready,setReady] = useState(false);
+
   useEffect(()=>{
-    const id="tv-script"; 
-    if(document.getElementById(id)) return;
-    const s=document.createElement("script"); 
-    s.id=id; 
-    s.src="https://s3.tradingview.com/tv.js"; 
-    s.async=true; 
-    document.body.appendChild(s); 
+    const w:any = window as any;
+    if (w.TradingView) { setReady(true); return; }
+
+    const id="tv-script";
+    const existing = document.getElementById(id) as HTMLScriptElement | null;
+
+    const onReady = () => setReady(true);
+
+    if(existing){
+      existing.addEventListener("load", onReady);
+      return ()=>existing.removeEventListener("load", onReady);
+    }
+
+    const s=document.createElement("script");
+    s.id=id;
+    s.src="https://s3.tradingview.com/tv.js";
+    s.async=true;
+    s.onload = onReady;
+    document.body.appendChild(s);
   },[]);
+
+  return ready;
 }
+
 
 /* ---------------------------------------------
    MAP LOADERS
@@ -196,11 +223,11 @@ async function readSummarySheet(file:File):Promise<Row[]>{
     const token = String(r[0] ?? "").trim(); 
     if(!token) continue;
 
-    const buy = parseFloat(r[1]);
-    const qty = Number.isFinite(r[2]) ? r[2] : 0;
-    const spent = numOrNull(r[2]) ?? numOrNull(r[4]) ?? null;
+    const buy = numOrNull(r[1]);
+    if (buy == null) continue;
+    const qty = numOrNull(r[3]) ?? 0;        // ✅ column D
+    const spent = numOrNull(r[4]) ?? null;   // ✅ column E (если есть)
 
-    if(!Number.isFinite(buy)) continue;
     out.push({token, buy, qty, spent});
   }
 
@@ -212,8 +239,10 @@ async function readSummarySheet(file:File):Promise<Row[]>{
 ---------------------------------------------- */
 
 export default function AltcoinTrackerApp(){
-  const {theme,setTheme} = useTheme();
-  useTradingViewScript();
+  const {theme,setTheme} = useTheme(); 
+
+  const tvReady = useTradingViewScript();
+  const tvRef = useRef<HTMLDivElement|null>(null);
 
   const [rows,setRows] = useState<Row[]>(()=>{
     try{ 
@@ -230,6 +259,29 @@ export default function AltcoinTrackerApp(){
   const [map,setMap] = useState<MapDict>({});
   const [tvSymbol,setTvSymbol] = useState<string|null>(null);
 
+useEffect(()=>{
+  if(!tvSymbol || !tvReady || !tvRef.current) return;
+
+  const w:any = window as any;
+  if(!w.TradingView?.widget) return;
+
+  tvRef.current.innerHTML = "";
+
+  new w.TradingView.widget({
+    autosize: true,
+    symbol: tvSymbol,
+    interval: "60",
+    timezone: "Etc/UTC",
+    theme: theme==="dark" ? "dark" : "light",
+    style: "1",
+    locale: "en",
+    enable_publishing: false,
+    allow_symbol_change: true,
+    container_id: "tv_chart_container",
+  });
+
+},[tvSymbol,tvReady,theme]);
+
   /* SAVE ROWS */
   useEffect(()=>{ 
     localStorage.setItem(LS_ROWS, JSON.stringify(rows)); 
@@ -245,12 +297,14 @@ export default function AltcoinTrackerApp(){
   }, []);
 
   /* AUTO REFRESH AFTER MAP LOADED */
-  useEffect(() => {
-    if (Object.keys(map).length > 0) {
-      console.log("AUTO REFRESH — MAP READY");
-      refresh();
-    }
-  }, [map]);
+
+
+useEffect(() => {
+  if (Object.keys(map).length === 0) return;
+  refresh();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [rows, map]);
+
 
   /* REFRESH FUNCTION */
   async function refresh(){
@@ -316,6 +370,7 @@ export default function AltcoinTrackerApp(){
 
       return {sym,row:r,cur,buy,qty,spent,curVal,pl,plPct,ch};
     });
+
 
     const q = search.trim().toUpperCase();
     let list = enriched.filter(x =>
@@ -409,7 +464,7 @@ export default function AltcoinTrackerApp(){
 
         <tbody>
           {table.map((t, idx)=>(
-            <tr key={idx} onClick={()=>setTvSymbol(t.sym+"USDT")} style={{cursor:"pointer"}}>
+            <tr key={idx} onClick={()=>setTvSymbol(`BINANCE:${t.sym}USDT`)} style={{cursor:"pointer"}}>
               <td>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
                   <span>{t.sym}</span>
@@ -439,6 +494,23 @@ export default function AltcoinTrackerApp(){
           )}
         </tbody>
       </table>
+
+{tvSymbol && (
+  <div style={{marginTop:12}}>
+    <div className="controls" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+      <div className="muted">Chart: {tvSymbol}</div>
+      <button className="btn" onClick={()=>setTvSymbol(null)}>Close chart</button>
+    </div>
+
+    <div style={{height:520}}>
+      <div id="tv_chart_container" ref={tvRef} style={{width:"100%",height:"100%"}} />
+    </div>
+  </div>
+)}
+
+
+
+
 
       <footer>
         Click a row to open a TradingView chart (BINANCE: SYMBOLUSDT). Themes are synchronized.
