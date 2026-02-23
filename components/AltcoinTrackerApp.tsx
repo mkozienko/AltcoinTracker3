@@ -67,12 +67,14 @@ function normalizeSymbol(raw: string): string {
   s = s.replace(/\(.*?\)/g, "");
   s = s.replace(/\s+/g, "");
 
+  // ВАЖНО: сначала убрать все разделители (/, -, :)
+  s = s.replace(/[^A-Z0-9]/g, "");
+
+  // потом корректно отрезать хвосты USDT/USD
   while (s.endsWith("USDT") || s.endsWith("USD")) {
     if (s.endsWith("USDT")) s = s.slice(0, -4);
-    else if (s.endsWith("USD")) s = s.slice(0, -3);
+    else s = s.slice(0, -3);
   }
-
-  s = s.replace(/[^A-Z0-9]/g, "");
   return s;
 }
 
