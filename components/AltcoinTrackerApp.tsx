@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 const LS_ROWS = "alt_rows_v1";
 const LS_THEME = "alt_theme_v1";
@@ -418,12 +417,34 @@ export default function AltcoinTrackerApp() {
     })();
   }, []);
 
+useEffect(() => {
+  if (!tvSymbol) return;
+
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") setTvSymbol(null);
+  };
+
+  window.addEventListener("keydown", onKey);
+  return () => window.removeEventListener("keydown", onKey);
+}, [tvSymbol]);
+
   /* ONE refresh effect: when map ready OR rows changed */
   useEffect(() => {
     if (Object.keys(map).length === 0) return;
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, map]);
+
+useEffect(() => {
+  if (!tvSymbol) return;
+
+  const prev = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+
+  return () => {
+    document.body.style.overflow = prev;
+  };
+}, [tvSymbol]);
 
   async function refresh() {
     if (!map || Object.keys(map).length === 0) return;
@@ -611,23 +632,58 @@ export default function AltcoinTrackerApp() {
         </tbody>
       </table>
 
-      {tvSymbol && (
-        <div style={{ marginTop: 12 }}>
-          <div
-            className="controls"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}
-          >
-            <div className="muted">Chart: {tvSymbol}</div>
-            <button className="btn" onClick={() => setTvSymbol(null)}>
-              Close chart
-            </button>
-          </div>
-
-          <div style={{ height: 520 }}>
-            <div id="tv_chart_container" ref={tvRef} style={{ width: "100%", height: "100%" }} />
-          </div>
+{tvSymbol &&
+  typeof document !== "undefined" &&
+  createPortal(
+    <div
+      onClick={() => setTvSymbol(null)}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 999999,
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(1100px, 100%)",
+          height: "min(720px, 100%)",
+          background: theme === "dark" ? "#111" : "#fff",
+          borderRadius: 12,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          className="controls"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "10px 12px",
+            borderBottom: theme === "dark" ? "1px solid #222" : "1px solid #eee",
+          }}
+        >
+          <div className="muted">Chart: {tvSymbol}</div>
+          <button className="btn" onClick={() => setTvSymbol(null)}>
+            Close
+          </button>
         </div>
-      )}
+
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <div id="tv_chart_container" ref={tvRef} style={{ width: "100%", height: "100%" }} />
+        </div>
+      </div>
+    </div>,
+    document.body
+  )}
 
       <footer>Click a row to open a TradingView chart (BINANCE: SYMBOLUSDT). Themes are synchronized.</footer>
     </div>
