@@ -224,48 +224,7 @@ async function fetchPricesBinance(baseSymbols: string[]) {
   return results;
 }
 
-  saveUserMap(userMap);
-
-  const uniqueIds = Array.from(new Set(Object.values(symbolToId)));
-  if (uniqueIds.length === 0) return results;
-
-  const chunkSize = 170;
-  const geckoReturns: Record<string, PriceEntry> = {};
-
-  try {
-    for (let i = 0; i < uniqueIds.length; i += chunkSize) {
-      const chunk = uniqueIds.slice(i, i + chunkSize);
-      const url =
-        `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
-          chunk.join(",")
-        )}` + `&vs_currencies=usd&include_24hr_change=true`;
-
-      const r = await fetch(url);
-      if (!r.ok) throw new Error("Gecko failed");
-      const js = await r.json();
-
-      for (const [gid, obj] of Object.entries<any>(js)) {
-        const price = typeof obj?.usd === "number" ? obj.usd : null;
-        const ch = typeof obj?.usd_24h_change === "number" ? obj.usd_24h_change : null;
-
-        for (const [sym, mapped] of Object.entries(symbolToId)) {
-          if (mapped === gid) {
-            geckoReturns[sym] = { price, ch, id: gid };
-          }
-        }
-      }
-    }
-  } catch {
-    // если API упал — просто вернём пусто
-  }
-
-  for (const s of symbols) {
-    results[s] = geckoReturns[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
-  }
-
-  return results;
-}
-
+ 
 /* ---------------------------------------------
    READ EXCEL (Summary with fallback to Buys)
 ---------------------------------------------- */
