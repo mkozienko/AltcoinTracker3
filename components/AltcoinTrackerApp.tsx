@@ -170,6 +170,48 @@ async function geckoSearchId(symbol: string): Promise<string | null> {
   }
 }
 
+
+async function fetchPricesCryptoCompare(symbols: string[]) {
+  const out: Record<string, PriceEntry> = {};
+  const clean = Array.from(new Set(symbols.filter(Boolean)));
+  if (clean.length === 0) return out;
+
+  const chunkSize = 200; // чтобы URL не был огромным
+  for (let i = 0; i < clean.length; i += chunkSize) {
+    const chunk = clean.slice(i, i + chunkSize);
+    const fsyms = chunk.join(",");
+
+    try {
+      const r = await fetch(
+        `https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${encodeURIComponent(
+          fsyms
+        )}&tsyms=USD`,
+        { cache: "no-store" }
+      );
+      if (!r.ok) continue;
+
+      const js = await r.json();
+
+      for (const s of chunk) {
+        const price = js?.RAW?.[s]?.USD?.PRICE;
+        const ch = js?.RAW?.[s]?.USD?.CHANGEPCT24HOUR;
+
+        out[s] = {
+          price: typeof price === "number" ? price : null,
+          ch: typeof ch === "number" ? ch : null,
+          id: "cryptocompare",
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return out;
+}
+
+
+
 /* ---------------------------------------------
    PRICE FETCHER
 ---------------------------------------------- */
@@ -286,8 +328,33 @@ const url =
   }
 }
 
+// FINAL fallback: CryptoCompare for still-missing/suspicious prices
+const needCC: string[] = [];
 
+for (const s of symbols) {
+  const p = geckoReturns[s]?.price ?? null;
+  if (p == null || !Number.isFinite(p) || p <= 0 || p < 0.000001) {
+    needCC.push(s);
+  }
+}
 
+if (needCC.length > 0) {
+  const cc = await fetchPricesCryptoCompare(needCC);
+
+  for (const s of needCC) {
+    const price = cc[s]?.price ?? null;
+    const ch = cc[s]?.ch ?? null;
+
+    if (price != null && Number.isFinite(price) && price > 0) {
+      geckoReturns[s] = {
+        price,
+        ch: ch ?? geckoReturns[s]?.ch ?? null,
+        id: geckoReturns[s]?.id || "—",
+      };
+    }
+  }
+}
+	
   for (const s of symbols) {
     results[s] = geckoReturns[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
   }
