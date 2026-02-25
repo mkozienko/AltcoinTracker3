@@ -621,27 +621,6 @@ useEffect(() => {
     });
 
 
-
-const totals = useMemo(() => {
-  let totalSpent = 0;
-  let totalCur = 0;
-  let pricedCount = 0;
-
-  for (const t of table) {
-    totalSpent += t.spent ?? 0;
-
-    if (t.cur != null && Number.isFinite(t.cur)) {
-      totalCur += t.cur * (t.qty ?? 0);
-      pricedCount += 1;
-    }
-  }
-
-  const totalPL = totalCur - totalSpent;
-  const totalPLPct = totalSpent > 0 ? (totalPL / totalSpent) * 100 : null;
-
-  return { totalSpent, totalCur, totalPL, totalPLPct, pricedCount };
-}, [table]);
-
     const q = search.trim().toUpperCase();
     let list = enriched.filter(
       (x) => !q || x.sym.includes(q) || x.row.token.toUpperCase().includes(q)
@@ -685,6 +664,27 @@ const totals = useMemo(() => {
 
     return list;
   }, [rows, prices, search, profitOnly, sort]);
+
+
+const totals = useMemo(() => {
+  let totalSpent = 0;
+  let totalCur = 0;
+  let pricedCount = 0;
+
+  for (const t of table) {
+    totalSpent += t.spent ?? 0;
+
+    if (t.cur != null && Number.isFinite(t.cur)) {
+      totalCur += t.cur * (t.qty ?? 0);
+      pricedCount += 1;
+    }
+  }
+
+  const totalPL = totalCur - totalSpent;
+  const totalPLPct = totalSpent > 0 ? (totalPL / totalSpent) * 100 : null;
+
+  return { totalSpent, totalCur, totalPL, totalPLPct, pricedCount };
+}, [table]);
 
   function onSort(key: string) {
     setSort((s) =>
