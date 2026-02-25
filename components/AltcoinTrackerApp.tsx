@@ -209,10 +209,11 @@ async function fetchPrices(symbols: string[], baseMap: MapDict) {
   try {
     for (let i = 0; i < uniqueIds.length; i += chunkSize) {
       const chunk = uniqueIds.slice(i, i + chunkSize);
+
       const url =
-        `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
-          chunk.join(",")
-        )}` + `&vs_currencies=usd&include_24hr_change=true`;
+  `/api/coingecko/simple-price?ids=${encodeURIComponent(chunk.join(","))}` +
+  `&vs_currencies=usd&include_24hr_change=true`;
+
 
       const r = await fetch(url);
       if (!r.ok) throw new Error("Gecko failed");
@@ -244,12 +245,16 @@ for (const [sym, pe] of Object.entries(geckoReturns)) {
 }
 
 // If some ids have bad prices, re-fetch them via /coins/markets (more stable)
+
+/*
 if (badIds.size > 0) {
   const ids = Array.from(badIds);
   const chunkSize2 = 100;
 
   for (let i = 0; i < ids.length; i += chunkSize2) {
     const chunk = ids.slice(i, i + chunkSize2);
+
+
     const url =
       `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(
         chunk.join(",")
@@ -282,6 +287,7 @@ if (badIds.size > 0) {
   }
 }
 
+*/
 
   for (const s of symbols) {
     results[s] = geckoReturns[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
