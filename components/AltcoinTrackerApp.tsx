@@ -246,7 +246,7 @@ for (const [sym, pe] of Object.entries(geckoReturns)) {
 
 // If some ids have bad prices, re-fetch them via /coins/markets (more stable)
 
-/*
+
 if (badIds.size > 0) {
   const ids = Array.from(badIds);
   const chunkSize2 = 100;
@@ -254,11 +254,10 @@ if (badIds.size > 0) {
   for (let i = 0; i < ids.length; i += chunkSize2) {
     const chunk = ids.slice(i, i + chunkSize2);
 
-
-    const url =
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(
-        chunk.join(",")
-      )}` + `&price_change_percentage=24h`;
+const url =
+  `/api/coingecko/markets?vs_currency=usd&ids=${encodeURIComponent(chunk.join(","))}` +
+  `&price_change_percentage=24h`;
+   
 
     try {
       const r2 = await fetch(url);
@@ -287,7 +286,7 @@ if (badIds.size > 0) {
   }
 }
 
-*/
+
 
   for (const s of symbols) {
     results[s] = geckoReturns[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
