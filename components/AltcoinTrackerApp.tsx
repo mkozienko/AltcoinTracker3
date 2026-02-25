@@ -173,58 +173,73 @@ async function geckoSearchId(symbol: string): Promise<string | null> {
 /* ---------------------------------------------
    PRICE FETCHER
 ---------------------------------------------- */
-async function fetchPricesBinance(baseSymbols: string[]) {
+async function fetchPrices(symbols: string[], baseMap: MapDict) {
   const results: Record<string, PriceEntry> = {};
-  const clean = Array.from(new Set(baseSymbols.filter(Boolean)));
-  if (clean.length === 0) return results;
+  const userMap = loadUserMap();
+  const symbolToId: Record<string, string> = {};
 
-  const BINANCE_BASE = "https://data-api.binance.vision";
-  const chunkSize = 100;
+  for (const sym of symbols) {
+    if (!sym) continue;
 
-  for (let i = 0; i < clean.length; i += chunkSize) {
-    const chunk = clean.slice(i, i + chunkSize);
-    const pairs = chunk.map((s) => `${s}USDT`);
+    if (userMap[sym]) {
+      symbolToId[sym] = userMap[sym];
+      continue;
+    }
 
-    try {
-      const url = `${BINANCE_BASE}/api/v3/ticker/24hr?symbols=${encodeURIComponent(
-        JSON.stringify(pairs)
-      )}`;
+    if (baseMap[sym]) {
+      symbolToId[sym] = baseMap[sym];
+      continue;
+    }
+
+    const found = await geckoSearchId(sym);
+    if (found) {
+      symbolToId[sym] = found;
+      userMap[sym] = found;
+    }
+  }
+
+  saveUserMap(userMap);
+
+  const uniqueIds = Array.from(new Set(Object.values(symbolToId)));
+  if (uniqueIds.length === 0) return results;
+
+  const chunkSize = 170;
+  const geckoReturns: Record<string, PriceEntry> = {};
+
+  try {
+    for (let i = 0; i < uniqueIds.length; i += chunkSize) {
+      const chunk = uniqueIds.slice(i, i + chunkSize);
+      const url =
+        `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
+          chunk.join(",")
+        )}` + `&vs_currencies=usd&include_24hr_change=true`;
 
       const r = await fetch(url);
-      if (!r.ok) throw new Error("Binance failed");
+      if (!r.ok) throw new Error("Gecko failed");
       const js = await r.json();
 
-      // defaults
-      for (const s of chunk) {
-        results[s] = { price: null, ch: null, id: `${s}USDT` };
-      }
+      for (const [gid, obj] of Object.entries<any>(js)) {
+        const price = typeof obj?.usd === "number" ? obj.usd : null;
+        const ch = typeof obj?.usd_24h_change === "number" ? obj.usd_24h_change : null;
 
-      for (const item of js) {
-        const symbol = String(item?.symbol || "");
-        const base = symbol.endsWith("USDT") ? symbol.slice(0, -4) : symbol;
-
-        const price = item?.lastPrice != null ? parseFloat(item.lastPrice) : null;
-        const ch =
-          item?.priceChangePercent != null ? parseFloat(item.priceChangePercent) : null;
-
-        results[base] = {
-          price: Number.isFinite(price as number) ? (price as number) : null,
-          ch: Number.isFinite(ch as number) ? (ch as number) : null,
-          id: symbol,
-        };
-      }
-    } catch {
-      // keep nulls if failed
-      for (const s of chunk) {
-        if (!results[s]) results[s] = { price: null, ch: null, id: `${s}USDT` };
+        for (const [sym, mapped] of Object.entries(symbolToId)) {
+          if (mapped === gid) {
+            geckoReturns[sym] = { price, ch, id: gid };
+          }
+        }
       }
     }
+  } catch {
+    // если API упал — просто вернём пусто
+  }
+
+  for (const s of symbols) {
+    results[s] = geckoReturns[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
   }
 
   return results;
 }
 
- 
 /* ---------------------------------------------
    READ EXCEL (Summary with fallback to Buys)
 ---------------------------------------------- */
@@ -414,6 +429,12 @@ useEffect(() => {
   return () => window.removeEventListener("keydown", onKey);
 }, [tvSymbol]);
 
+  /* ONE refresh effect: when map ready OR rows changed */
+  useEffect(() => {
+    if (Object.keys(map).length === 0) return;
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, map]);
 
 useEffect(() => {
   if (!tvSymbol) return;
@@ -426,11 +447,12 @@ useEffect(() => {
   };
 }, [tvSymbol]);
 
- async function refresh() {
-  const symbols = Array.from(new Set(rows.map((r) => normalizeSymbol(r.token))));
-  const p = await fetchPricesBinance(symbols);
-  setPrices(p);
-}
+  async function refresh() {
+    if (!map || Object.keys(map).length === 0) return;
+    const symbols = Array.from(new Set(rows.map((r) => normalizeSymbol(r.token))));
+    const p = await fetchPrices(symbols, map);
+    setPrices(p);
+  }
 
   /* UPLOAD EXCEL */
   async function onUploadXlsx(e: React.ChangeEvent<HTMLInputElement>) {
@@ -587,8 +609,7 @@ useEffect(() => {
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <span>{t.sym}</span>
                   <span className="muted">({t.row.token})</span>
-                  {t.cur == null && <span className="muted">— not found on Binance</span>}
-                  
+                  {t.cur == null && <span className="muted">— not found on CoinGecko</span>}
                 </div>
               </td>
               <td className="num">{fmt(t.buy, 6)}</td>
