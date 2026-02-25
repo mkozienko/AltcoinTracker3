@@ -620,6 +620,28 @@ useEffect(() => {
       return { sym, row: r, cur, buy, qty, spent, curVal, pl, plPct, ch };
     });
 
+
+
+const totals = useMemo(() => {
+  let totalSpent = 0;
+  let totalCur = 0;
+  let pricedCount = 0;
+
+  for (const t of table) {
+    totalSpent += t.spent ?? 0;
+
+    if (t.cur != null && Number.isFinite(t.cur)) {
+      totalCur += t.cur * (t.qty ?? 0);
+      pricedCount += 1;
+    }
+  }
+
+  const totalPL = totalCur - totalSpent;
+  const totalPLPct = totalSpent > 0 ? (totalPL / totalSpent) * 100 : null;
+
+  return { totalSpent, totalCur, totalPL, totalPLPct, pricedCount };
+}, [table]);
+
     const q = search.trim().toUpperCase();
     let list = enriched.filter(
       (x) => !q || x.sym.includes(q) || x.row.token.toUpperCase().includes(q)
@@ -708,6 +730,18 @@ useEffect(() => {
           />
         </label>
       </div>
+
+<div className="controls" style={{ marginBottom: 8 }}>
+  <div className="muted">
+    <b>Today total:</b> ${fmt(totals.totalCur, 2)}{" "}
+    <span className={cx(colorPL(totals.totalPL))}>
+      ({totals.totalPL >= 0 ? "+" : ""}{fmt(totals.totalPL, 2)}
+      {totals.totalPLPct != null ? `, ${fmt(totals.totalPLPct, 2)}%` : ""})
+    </span>
+    {" "}• Spent: ${fmt(totals.totalSpent, 2)} • Priced coins: {totals.pricedCount}/{table.length}
+  </div>
+</div>
+
 
       <table>
         <thead>
