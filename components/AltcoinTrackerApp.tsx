@@ -233,6 +233,56 @@ async function fetchPrices(symbols: string[], baseMap: MapDict) {
     // если API упал — просто вернём пусто
   }
 
+// Fallback for suspicious prices (0 / null / extremely small)
+const badIds = new Set<string>();
+
+for (const [sym, pe] of Object.entries(geckoReturns)) {
+  const p = pe?.price;
+  if (p == null || !Number.isFinite(p) || p <= 0 || p < 0.000001) {
+    if (pe?.id && pe.id !== "—") badIds.add(pe.id);
+  }
+}
+
+// If some ids have bad prices, re-fetch them via /coins/markets (more stable)
+if (badIds.size > 0) {
+  const ids = Array.from(badIds);
+  const chunkSize2 = 100;
+
+  for (let i = 0; i < ids.length; i += chunkSize2) {
+    const chunk = ids.slice(i, i + chunkSize2);
+    const url =
+      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(
+        chunk.join(",")
+      )}` + `&price_change_percentage=24h`;
+
+    try {
+      const r2 = await fetch(url);
+      if (!r2.ok) continue;
+      const arr = await r2.json();
+
+      // arr: [{ id, current_price, price_change_percentage_24h, ... }]
+      for (const it of arr) {
+        const gid = String(it?.id || "");
+        const price = typeof it?.current_price === "number" ? it.current_price : null;
+        const ch =
+          typeof it?.price_change_percentage_24h === "number"
+            ? it.price_change_percentage_24h
+            : null;
+
+        // update all symbols mapped to this gid
+        for (const [sym, mapped] of Object.entries(symbolToId)) {
+          if (mapped === gid) {
+            geckoReturns[sym] = { price, ch, id: gid };
+          }
+        }
+      }
+    } catch {
+      // ignore fallback errors
+    }
+  }
+}
+
+
   for (const s of symbols) {
     results[s] = geckoReturns[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
   }
@@ -609,7 +659,14 @@ useEffect(() => {
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <span>{t.sym}</span>
                   <span className="muted">({t.row.token})</span>
-                  {t.cur == null && <span className="muted">— not found on CoinGecko</span>}
+                  {t.cur == null && (
+                  <span className="muted">— no price returned from CoinGecko</span>
+                  )}
+
+                 {t.cur != null && t.cur > 0 && t.cur < 0.000001 && (
+                 <span className="muted">— suspiciously low price</span>
+                 )}       
+		
                 </div>
               </td>
               <td className="num">{fmt(t.buy, 6)}</td>
