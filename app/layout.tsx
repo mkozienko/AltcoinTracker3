@@ -1,7 +1,7 @@
-
 export const metadata = {
-  title: "Altcoin Tracker (CoinGecko Edition)",
-  description: "Minimal Excel + CoinGecko tracker with TradingView charts",
+  title: "Altcoin Tracker",
+  description: "Track your crypto portfolio",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
