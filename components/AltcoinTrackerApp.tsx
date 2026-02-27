@@ -856,8 +856,8 @@ const totals = useMemo(() => {
       Click a row to open a TradingView chart (BINANCE: SYMBOLUSDT).
     </footer>
   </div>
-);
-
+ );
+}
 function Th({
   label,
   sortKey,
