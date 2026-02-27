@@ -496,6 +496,7 @@ export default function AltcoinTrackerApp() {
 
   const [search, setSearch] = useState("");
   const [profitOnly, setProfitOnly] = useState(false);
+  const [showTotals, setShowTotals] = useState(true);
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({
     key: "token",
     dir: "asc",
@@ -733,6 +734,11 @@ const totals = useMemo(() => {
           Profit only
         </label>
 
+<label className="checkbox">
+  <input checked={showTotals} onChange={(e) => setShowTotals(e.target.checked)} type="checkbox" />{" "}
+  Totals
+</label>
+
         <input
           type="text"
           placeholder="Search token..."
@@ -751,7 +757,8 @@ const totals = useMemo(() => {
         </label>
       </div>
 
-<div className="controls" style={{ marginBottom: 8 }}>
+{showTotals && (
+ <div className="controls" style={{ marginBottom: 8 }}>
   <div className="muted">
     <b>Today total:</b> ${fmt(totals.totalCur, 2)}{" "}
     <span className={cx(colorPL(totals.totalPL))}>
@@ -760,8 +767,8 @@ const totals = useMemo(() => {
     </span>
     {" "}• Spent: ${fmt(totals.totalSpent, 2)} • Priced coins: {totals.pricedCount}/{table.length}
   </div>
-</div>
-
+ </div>
+)}
 
       <table>
         <thead>
