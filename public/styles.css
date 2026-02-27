@@ -43,6 +43,7 @@ h1 {
   font-size: 22px;
   font-weight: 600;
   margin: 0;
+  color: var(--fg);
 }
 
 /* Верхняя панель */
@@ -186,16 +187,6 @@ table {
   border-spacing: 0 !important;
 }
 
-/*
-thead th {
-  border: none !important;
-  background: #f7f7f7 !important;
-}
-
-thead {
-  background: #f7f7f7 !important;
-}
-*/
 
 thead {
   background: var(--bg) !important;
@@ -242,7 +233,45 @@ thead th button::-moz-focus-inner { border: 0; padding: 0; }
 
 /* Сам th — плоский серый блок без капсул */
 thead th {
-  background: #f7f7f7;
-  border: none;
+  background: var(--bg);
+  color: var(--fg);
+  border-bottom: 2px solid var(--border);
+
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* App layout: fixed top, scrollable table (best for iOS) */
+.appShell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top area (header + controls + totals) stays visible */
+.topbar {
+  flex: 0 0 auto;
+  background: var(--bg);
+  color: var(--fg);
+  padding-bottom: 8px;
+  z-index: 20;
+}
+
+/* Table scroll area */
+.tableWrap {
+  flex: 1 1 auto;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+}
+
+/* Sticky table header inside the scroll area */
+.tableWrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  color: var(--fg);
   border-bottom: 2px solid var(--border);
 }
