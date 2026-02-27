@@ -8,7 +8,7 @@
   --good: #15803d;
 }
 
-.dark {
+html..dark {
   --bg: #0f1115;
   --fg: #e5e7eb;
   --muted: #9ca3af;
@@ -183,6 +183,7 @@ table {
   border-spacing: 0 !important;
 }
 
+/*
 thead th {
   border: none !important;
   background: #f7f7f7 !important;
@@ -190,6 +191,20 @@ thead th {
 
 thead {
   background: #f7f7f7 !important;
+}
+*/
+
+thead {
+  background: var(--bg) !important;
+}
+
+thead th {
+  background: var(--bg) !important;
+  color: var(--fg) !important;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 2px solid var(--border);
 }
 
 /* Убрать белые капсулы в заголовках */
