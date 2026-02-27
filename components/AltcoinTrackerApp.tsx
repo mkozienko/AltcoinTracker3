@@ -706,11 +706,18 @@ const totals = useMemo(() => {
   }
 
   return (
-    <div className="wrap">
+  <div className="wrap appShell">
+
+    {/* FIXED TOP AREA */}
+    <div className="topbar">
+
       <header>
         <h1>Altcoin Tracker</h1>
         <div className="controls">
-          <button className="btn" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+          <button
+            className="btn"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          >
             {theme === "dark" ? "🌞 Light" : "🌙 Dark"}
           </button>
         </div>
@@ -721,23 +728,30 @@ const totals = useMemo(() => {
           Refresh prices
         </button>
 
-<button
-  className="btn"
-  onClick={() => setCompact((v) => !v)}
-  style={{ marginLeft: 8 }}
->
-  {compact ? "Full version" : "Compact"}
-</button>
+        <button
+          className="btn"
+          onClick={() => setCompact((v) => !v)}
+        >
+          {compact ? "Full version" : "Compact"}
+        </button>
 
         <label className="checkbox">
-          <input checked={profitOnly} onChange={(e) => setProfitOnly(e.target.checked)} type="checkbox" />{" "}
+          <input
+            checked={profitOnly}
+            onChange={(e) => setProfitOnly(e.target.checked)}
+            type="checkbox"
+          />{" "}
           Profit only
         </label>
 
-<label className="checkbox">
-  <input checked={showTotals} onChange={(e) => setShowTotals(e.target.checked)} type="checkbox" />{" "}
-  Totals
-</label>
+        <label className="checkbox">
+          <input
+            checked={showTotals}
+            onChange={(e) => setShowTotals(e.target.checked)}
+            type="checkbox"
+          />{" "}
+          Totals
+        </label>
 
         <input
           type="text"
@@ -747,7 +761,7 @@ const totals = useMemo(() => {
         />
 
         <label className="btn" style={{ position: "relative" }}>
-          Upload Excel (Summary)
+          Upload Excel
           <input
             type="file"
             accept=".xlsx,.xls"
@@ -757,31 +771,45 @@ const totals = useMemo(() => {
         </label>
       </div>
 
-{showTotals && (
- <div className="controls" style={{ marginBottom: 8 }}>
-  <div className="muted">
-    <b>Today total:</b> ${fmt(totals.totalCur, 2)}{" "}
-    <span className={cx(colorPL(totals.totalPL))}>
-      ({totals.totalPL >= 0 ? "+" : ""}{fmt(totals.totalPL, 2)}
-      {totals.totalPLPct != null ? `, ${fmt(totals.totalPLPct, 2)}%` : ""})
-    </span>
-    {" "}• Spent: ${fmt(totals.totalSpent, 2)} • Priced coins: {totals.pricedCount}/{table.length}
-  </div>
- </div>
-)}
+      {showTotals && (
+        <div className="controls" style={{ marginBottom: 8 }}>
+          <div className="muted">
+            <b>Today total:</b> ${fmt(totals.totalCur, 2)}{" "}
+            <span className={cx(colorPL(totals.totalPL))}>
+              ({totals.totalPL >= 0 ? "+" : ""}
+              {fmt(totals.totalPL, 2)}
+              {totals.totalPLPct != null
+                ? `, ${fmt(totals.totalPLPct, 2)}%`
+                : ""}
+              )
+            </span>{" "}
+            • Spent: ${fmt(totals.totalSpent, 2)} • Priced coins:{" "}
+            {totals.pricedCount}/{table.length}
+          </div>
+        </div>
+      )}
+    </div>
 
+    {/* SCROLLABLE TABLE AREA */}
+    <div className="tableWrap">
       <table>
         <thead>
           <tr>
             <Th label="Token" sortKey="token" sort={sort} onSort={onSort} />
 
-            {!compact && <Th label="Buy Price (USD)" sortKey="buy" sort={sort} onSort={onSort} right />}
-            {!compact && <Th label="Current (USD)" sortKey="cur" sort={sort} onSort={onSort} right />}
+            {!compact && (
+              <Th label="Buy" sortKey="buy" sort={sort} onSort={onSort} right />
+            )}
+            {!compact && (
+              <Th label="Current" sortKey="cur" sort={sort} onSort={onSort} right />
+            )}
             {!compact && <th className="num">24h %</th>}
-            {!compact && <Th label="Qty" sortKey="qty" sort={sort} onSort={onSort} right />}
+            {!compact && (
+              <Th label="Qty" sortKey="qty" sort={sort} onSort={onSort} right />
+            )}
 
             <Th label="Spent" sortKey="spent" sort={sort} onSort={onSort} right />
-            <Th label="Current Value" sortKey="curVal" sort={sort} onSort={onSort} right />
+            <Th label="Value" sortKey="curVal" sort={sort} onSort={onSort} right />
             <Th label="P/L $" sortKey="pl" sort={sort} onSort={onSort} right />
             <Th label="P/L %" sortKey="plPct" sort={sort} onSort={onSort} right />
           </tr>
@@ -789,24 +817,17 @@ const totals = useMemo(() => {
 
         <tbody>
           {table.map((t, idx) => (
-            <tr key={idx} onClick={() => setTvSymbol(`BINANCE:${t.sym}USDT`)} style={{ cursor: "pointer" }}>
+            <tr
+              key={idx}
+              onClick={() => setTvSymbol(`BINANCE:${t.sym}USDT`)}
+              style={{ cursor: "pointer" }}
+            >
               <td>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span>{t.sym}</span>
-
-                  {!compact && <span className="muted">({t.row.token})</span>}
-
-                  {t.cur == null && (
-                  <span className="muted">— no price returned from CoinGecko</span>
-                  )}
-
-                 {t.cur != null && t.cur > 0 && t.cur < 0.000001 && (
-                 <span className="muted">— suspiciously low price</span>
-                 )}       
-		
-                </div>
+                <span>{t.sym}</span>
+                {!compact && (
+                  <span className="muted"> ({t.row.token})</span>
+                )}
               </td>
-
 
               {!compact && <td className="num">{fmt(t.buy, 6)}</td>}
               {!compact && <td className="num">{fmt(t.cur, 6)}</td>}
@@ -815,78 +836,27 @@ const totals = useMemo(() => {
 
               <td className="num">{fmt(t.spent, 2)}</td>
               <td className="num">{fmt(t.curVal, 2)}</td>
-              <td className={cx("num", colorPL(t.pl))}>{fmt(t.pl, 2)}</td>
-              <td className={cx("num", colorPL(t.plPct))}>{t.pl != null ? fmt(t.plPct, 2) + "%" : "—"}</td>
-            </tr>
-          ))}
-
-          {table.length === 0 && (
-            <tr>
-              <td className="muted" colSpan={9}>
-                No rows. Upload Excel (Summary) or clear filters.
+              <td className={cx("num", colorPL(t.pl))}>
+                {fmt(t.pl, 2)}
+              </td>
+              <td className={cx("num", colorPL(t.plPct))}>
+                {t.pl != null ? fmt(t.plPct, 2) + "%" : "—"}
               </td>
             </tr>
-          )}
+          ))}
         </tbody>
       </table>
-
-{tvSymbol &&
-  typeof document !== "undefined" &&
-  createPortal(
-    <div
-      onClick={() => setTvSymbol(null)}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.55)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 999999,
-        padding: 16,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "min(1100px, 100%)",
-          height: "min(720px, 100%)",
-          background: theme === "dark" ? "#111" : "#fff",
-          borderRadius: 12,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          className="controls"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "10px 12px",
-            borderBottom: theme === "dark" ? "1px solid #222" : "1px solid #eee",
-          }}
-        >
-          <div className="muted">Chart: {tvSymbol}</div>
-          <button className="btn" onClick={() => setTvSymbol(null)}>
-            Close
-          </button>
-        </div>
-
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <div id="tv_chart_container" ref={tvRef} style={{ width: "100%", height: "100%" }} />
-        </div>
-      </div>
-    </div>,
-    document.body
-  )}
-
-      <footer>Click a row to open a TradingView chart (BINANCE: SYMBOLUSDT). Themes are synchronized.</footer>
     </div>
-  );
-}
+
+    {tvSymbol &&
+      typeof document !== "undefined" &&
+      createPortal(/* твой existing modal */, document.body)}
+
+    <footer>
+      Click a row to open a TradingView chart (BINANCE: SYMBOLUSDT).
+    </footer>
+  </div>
+);
 
 function Th({
   label,
