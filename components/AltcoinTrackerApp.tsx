@@ -706,7 +706,7 @@ const totals = useMemo(() => {
   }
 
   return (
-  <div className="wrap appShell">
+	<div className="wrap appShell">
 
     {/* FIXED TOP AREA */}
     <div className="topbar">
