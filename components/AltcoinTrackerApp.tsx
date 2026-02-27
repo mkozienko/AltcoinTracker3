@@ -504,6 +504,18 @@ export default function AltcoinTrackerApp() {
   const [map, setMap] = useState<MapDict>({});
   const [tvSymbol, setTvSymbol] = useState<string | null>(null);
 
+  const [compact, setCompact] = useState(false);
+
+useEffect(() => {
+  const mq = window.matchMedia("(max-width: 768px)");
+  setCompact(mq.matches); // только начальное значение
+}, []);
+
+
+
+
+
+
   /* TradingView widget */
   useEffect(() => {
     if (!tvSymbol || !tvReady || !tvRef.current) return;
@@ -708,6 +720,14 @@ const totals = useMemo(() => {
           Refresh prices
         </button>
 
+<button
+  className="btn"
+  onClick={() => setCompact((v) => !v)}
+  style={{ marginLeft: 8 }}
+>
+  {compact ? "Full version" : "Compact"}
+</button>
+
         <label className="checkbox">
           <input checked={profitOnly} onChange={(e) => setProfitOnly(e.target.checked)} type="checkbox" />{" "}
           Profit only
@@ -747,10 +767,12 @@ const totals = useMemo(() => {
         <thead>
           <tr>
             <Th label="Token" sortKey="token" sort={sort} onSort={onSort} />
-            <Th label="Buy Price (USD)" sortKey="buy" sort={sort} onSort={onSort} right />
-            <Th label="Current (USD)" sortKey="cur" sort={sort} onSort={onSort} right />
-            <th className="num">24h %</th>
-            <Th label="Qty" sortKey="qty" sort={sort} onSort={onSort} right />
+
+            {!compact && <Th label="Buy Price (USD)" sortKey="buy" sort={sort} onSort={onSort} right />}
+            {!compact && <Th label="Current (USD)" sortKey="cur" sort={sort} onSort={onSort} right />}
+            {!compact && <th className="num">24h %</th>}
+            {!compact && <Th label="Qty" sortKey="qty" sort={sort} onSort={onSort} right />}
+
             <Th label="Spent" sortKey="spent" sort={sort} onSort={onSort} right />
             <Th label="Current Value" sortKey="curVal" sort={sort} onSort={onSort} right />
             <Th label="P/L $" sortKey="pl" sort={sort} onSort={onSort} right />
@@ -764,7 +786,9 @@ const totals = useMemo(() => {
               <td>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <span>{t.sym}</span>
-                  <span className="muted">({t.row.token})</span>
+
+                  {!compact && <span className="muted">({t.row.token})</span>}
+
                   {t.cur == null && (
                   <span className="muted">— no price returned from CoinGecko</span>
                   )}
@@ -775,10 +799,13 @@ const totals = useMemo(() => {
 		
                 </div>
               </td>
-              <td className="num">{fmt(t.buy, 6)}</td>
-              <td className="num">{fmt(t.cur, 6)}</td>
-              <td className="num">{fmt(t.ch, 2)}</td>
-              <td className="num">{fmt(t.qty, 6)}</td>
+
+
+              {!compact && <td className="num">{fmt(t.buy, 6)}</td>}
+              {!compact && <td className="num">{fmt(t.cur, 6)}</td>}
+              {!compact && <td className="num">{fmt(t.ch, 2)}</td>}
+              {!compact && <td className="num">{fmt(t.qty, 6)}</td>}
+
               <td className="num">{fmt(t.spent, 2)}</td>
               <td className="num">{fmt(t.curVal, 2)}</td>
               <td className={cx("num", colorPL(t.pl))}>{fmt(t.pl, 2)}</td>
