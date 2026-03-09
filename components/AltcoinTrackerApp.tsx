@@ -529,7 +529,7 @@ useEffect(() => {
     new w.TradingView.widget({
       autosize: true,
       symbol: tvSymbol,
-      interval: "60",
+      interval: "D",
       timezone: "Etc/UTC",
       theme: theme === "dark" ? "dark" : "light",
       style: "1",
@@ -848,7 +848,65 @@ const totals = useMemo(() => {
       </table>
     </div>
 
-    {tvSymbol && null}
+    
+
+{tvSymbol &&
+  typeof document !== "undefined" &&
+  createPortal(
+    <div
+      onClick={() => setTvSymbol(null)}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 999999,
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(1100px, 100%)",
+          height: "min(720px, 100%)",
+          background: theme === "dark" ? "#111" : "#fff",
+          borderRadius: 12,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          className="controls"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "10px 12px",
+            borderBottom: theme === "dark" ? "1px solid #222" : "1px solid #eee",
+            marginBottom: 0,
+          }}
+        >
+          <div className="muted">Chart: {tvSymbol}</div>
+          <button className="btn" onClick={() => setTvSymbol(null)}>
+            Close
+          </button>
+        </div>
+
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <div
+            id="tv_chart_container"
+            ref={tvRef}
+            style={{ width: "100%", height: "100%" }}
+          />
+        </div>
+      </div>
+    </div>,
+    document.body
+  )}
 
     <footer>
       Click a row to open a TradingView chart (BINANCE: SYMBOLUSDT).
