@@ -109,7 +109,6 @@ table {
   border-spacing: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
   background: var(--bg);
 }
 
@@ -245,6 +244,7 @@ footer {
   overscroll-behavior: contain;
   touch-action: pan-y;
   border-radius: 8px;
+  background: var(--bg);
 }
 
 .tableWrap thead th {
