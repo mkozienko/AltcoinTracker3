@@ -810,8 +810,22 @@ const totals = useMemo(() => {
 
             <Th label="Spent" sortKey="spent" sort={sort} onSort={onSort} right />
             <Th label="Value" sortKey="curVal" sort={sort} onSort={onSort} right />
-            <Th label="P/L $" sortKey="pl" sort={sort} onSort={onSort} right />
-            <Th label="P/L %" sortKey="plPct" sort={sort} onSort={onSort} right />
+
+            <Th
+  label={compact ? "P/L" : "P/L $"}
+  sortKey="pl"
+  sort={sort}
+  onSort={onSort}
+  right
+/>
+
+<Th
+  label={compact ? "%" : "P/L %"}
+  sortKey="plPct"
+  sort={sort}
+  onSort={onSort}
+  right
+/>
           </tr>
         </thead>
 
