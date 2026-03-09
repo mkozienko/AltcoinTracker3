@@ -246,3 +246,34 @@ footer {
   top: 0;
   z-index: 10;
 }
+@media (max-width: 768px) {
+  thead th,
+  tbody td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+
+  .num {
+    font-size: 12px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .controls {
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .btn {
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+
+  input[type="text"],
+  input[type="number"] {
+    padding: 7px 9px;
+    font-size: 14px;
+  }
+}
