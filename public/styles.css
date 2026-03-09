@@ -103,6 +103,8 @@ label.checkbox {
 
 table {
   width: 100%;
+  min-width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid var(--border);
@@ -236,16 +238,24 @@ footer {
 
 .tableWrap {
   flex: 1 1 auto;
-  overflow: auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   border-radius: 8px;
 }
 
 .tableWrap thead th {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 15;
+  background: var(--bg);
+  color: var(--fg);
+  border-bottom: 2px solid var(--border);
 }
+
 @media (max-width: 768px) {
   thead th,
   tbody td {
