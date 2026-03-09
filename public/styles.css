@@ -103,8 +103,6 @@ label.checkbox {
 
 table {
   width: 100%;
-  min-width: 100%;
-  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid var(--border);
@@ -285,5 +283,11 @@ footer {
   input[type="number"] {
     padding: 7px 9px;
     font-size: 14px;
+  }
+}
+  @media (max-width: 768px) {
+  .tableWrap.compact table {
+    table-layout: fixed;
+    width: 100%;
   }
 }
