@@ -848,9 +848,7 @@ const totals = useMemo(() => {
       </table>
     </div>
 
-    {tvSymbol &&
-      typeof document !== "undefined" &&
-      createPortal(/* твой existing modal */, document.body)}
+    {tvSymbol && null}
 
     <footer>
       Click a row to open a TradingView chart (BINANCE: SYMBOLUSDT).
