@@ -236,15 +236,21 @@ footer {
 .tableWrap {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  touch-action: pan-y;
   border-radius: 8px;
-  background: var(--bg);
 }
 
+.tableWrap.compact {
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+
+.tableWrap.full {
+  overflow: auto;
+  touch-action: pan-x pan-y;
+}
 .tableWrap thead th {
   position: sticky;
   top: 0;
@@ -252,6 +258,17 @@ footer {
   background: var(--bg);
   color: var(--fg);
   border-bottom: 2px solid var(--border);
+}
+
+.tableWrap.compact table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.tableWrap.full table {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
 }
 
 @media (max-width: 768px) {
