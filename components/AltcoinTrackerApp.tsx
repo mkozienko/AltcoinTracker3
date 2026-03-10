@@ -791,7 +791,7 @@ const totals = useMemo(() => {
     </div>
 
     {/* SCROLLABLE TABLE AREA */}
-    <div className="tableWrap">
+    <div className={cx("tableWrap", compact && "compact")}>
       <table>
         <thead>
           <tr>
