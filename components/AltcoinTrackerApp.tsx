@@ -850,9 +850,17 @@ const totals = useMemo(() => {
 
               <td className="num">{fmt(t.spent, 2)}</td>
               <td className="num">{fmt(t.curVal, 2)}</td>
+
               <td className={cx("num", colorPL(t.pl))}>
+                {t.pl != null && (
+                  <>
+                    {t.pl > 0 && "▲ "}
+                    {t.pl < 0 && "▼ "}
+                  </>
+                )}
                 {fmt(t.pl, 2)}
               </td>
+
               <td className={cx("num", colorPL(t.plPct))}>
                 {t.pl != null ? fmt(t.plPct, 2) + "%" : "—"}
               </td>
