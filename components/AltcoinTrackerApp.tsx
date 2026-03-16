@@ -131,7 +131,7 @@ function useTradingViewScript() {
 ---------------------------------------------- */
 async function loadBaseMap(): Promise<MapDict> {
   try {
-    const r = await fetch("/data/coingecko_map.json", { cache: "force-cache" });
+    const r = await fetch(`/data/coingecko_map.json?v=2`, { cache: "no-store" });
     if (!r.ok) return {};
     return await r.json();
   } catch {
@@ -955,3 +955,5 @@ function Th({
     </th>
   );
 }
+
+
