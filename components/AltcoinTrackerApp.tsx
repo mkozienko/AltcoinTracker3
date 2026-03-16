@@ -223,15 +223,17 @@ async function fetchPrices(symbols: string[], baseMap: MapDict) {
   for (const sym of symbols) {
     if (!sym) continue;
 
-    if (userMap[sym]) {
+    // 1️⃣ сначала проверяем официальный mapping
+      if (baseMap[sym]) {
+        symbolToId[sym] = baseMap[sym];
+        continue;
+      }
+
+    // 2️⃣ потом используем user cache
+     if (userMap[sym]) {
       symbolToId[sym] = userMap[sym];
       continue;
-    }
-
-    if (baseMap[sym]) {
-      symbolToId[sym] = baseMap[sym];
-      continue;
-    }
+     }
 
     const found = await geckoSearchId(sym);
     if (found) {
