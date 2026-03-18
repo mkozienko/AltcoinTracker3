@@ -460,6 +460,7 @@ function readFromBuys(XLSX: any, wb: any): Row[] {
   return out;
 }
 
+
 async function readSummarySheet(file: File): Promise<Row[]> {
   const XLSX = await import("xlsx");
   const data = await file.arrayBuffer();
@@ -470,12 +471,6 @@ async function readSummarySheet(file: File): Promise<Row[]> {
   } catch {}
 
   const wb = XLSX.read(data, { type: "array" });
-
-  // 1) пробуем Summary (как раньше)
-  const fromSummary = readFromSummary(XLSX, wb);
-  if (fromSummary && fromSummary.length > 0) return fromSummary;
-
-  // 2) fallback: Buys (надёжно, потому что qty там числа)
   return readFromBuys(XLSX, wb);
 }
 
@@ -955,5 +950,4 @@ function Th({
     </th>
   );
 }
-
 
