@@ -117,12 +117,12 @@
   "ZEC": "zcash",
   "ZIL": "zilliqa",
   "BLUR": "blur",
-  "DYDX": "dydx-ethdydx",
+  "DYDX": "dydx-chain",
   "FLOW": "flow",
   "PEPE": "pepe",
   "PHA": "phala-network",
   "SLF": "self-chain",
-  "TON": "toncoin",
+  "GRAM": "gram",
   "TRU": "truefi",
   "ZRX": "0x"
 }
