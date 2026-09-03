@@ -131,7 +131,7 @@ function useTradingViewScript() {
 ---------------------------------------------- */
 async function loadBaseMap(): Promise<MapDict> {
   try {
-    const r = await fetch(`/data/coingecko_map.json?v=3`, { cache: "no-store" });
+    const r = await fetch(`/data/coingecko_map.json?v=4`, { cache: "no-store" });
     if (!r.ok) return {};
     return await r.json();
   } catch {
@@ -281,10 +281,10 @@ async function fetchPrices(symbols: string[], baseMap: MapDict) {
 // Fallback for suspicious prices (0 / null / extremely small)
 const badIds = new Set<string>();
 
-for (const [sym, pe] of Object.entries(geckoReturns)) {
-  const p = pe?.price;
+for (const [sym, gid] of Object.entries(symbolToId)) {
+  const p = geckoReturns[sym]?.price;
   if (p == null || !Number.isFinite(p) || p <= 0 || p < 0.000001) {
-    if (pe?.id && pe.id !== "—") badIds.add(pe.id);
+    badIds.add(gid);
   }
 }
 
