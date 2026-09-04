@@ -470,7 +470,7 @@ const totals = useMemo(() => {
                 : ""}
               )
             </span>{" "}
-            • Spent: ${fmt(totals.totalSpent, 2)} • Priced coins:{" "}
+            • Currently invested: ${fmt(totals.totalSpent, 2)} • Priced coins:{" "}
             {totals.pricedCount}/{table.length}
           </div>
         </div>
@@ -495,7 +495,7 @@ const totals = useMemo(() => {
               <Th label="Qty" sortKey="qty" sort={sort} onSort={onSort} right />
             )}
 
-            <Th label="Spent" sortKey="spent" sort={sort} onSort={onSort} right />
+            <Th label="Invested" sortKey="spent" sort={sort} onSort={onSort} right />
             <Th label="Value" sortKey="curVal" sort={sort} onSort={onSort} right />
 
             <Th

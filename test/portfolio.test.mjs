@@ -123,6 +123,65 @@ test("ROOT survives the serialized workbook import when absent from Summary", ()
   assert.equal(official.ROOT, "the-root-network");
 });
 
+test("Summary uses Qty when Leftover is blank", () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Token", "AVG Price", "Qty", "Leftover"],
+      ["OPEN", 2, 100, null],
+    ]),
+    "Summary",
+  );
+
+  assert.deepEqual(readPortfolioWorkbook(XLSX, workbook), [
+    { token: "OPEN/USDT", buy: 2, qty: 100, spent: 200 },
+  ]);
+});
+
+test("Summary uses a non-empty Leftover as current Qty", () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Token", "AVG Price", "Qty", "Leftover"],
+      ["PARTIAL", 2, 100, 40],
+    ]),
+    "Summary",
+  );
+
+  assert.deepEqual(readPortfolioWorkbook(XLSX, workbook), [
+    { token: "PARTIAL/USDT", buy: 2, qty: 40, spent: 80 },
+  ]);
+});
+
+test("numeric zero Leftover excludes a closed position without reading Sales", () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Token", "AVG Price", "Qty", "Leftover"],
+      ["CLOSED", 2, 100, 0],
+    ]),
+    "Summary",
+  );
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Token", "Buy Price", "Qty"],
+      ["CLOSED", 2, 100],
+    ]),
+    "Buys",
+  );
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([["CLOSED", 100, "must not be processed"]]),
+    "Sales",
+  );
+
+  assert.deepEqual(readPortfolioWorkbook(XLSX, workbook), []);
+});
+
 test("required pair formats normalize and only positive finite prices are counted", () => {
   for (const symbol of ["GRAM", "ONDO", "PHA", "STX", "ROOT"]) {
     assert.equal(normalizeSymbol(`${symbol}USDT`), symbol);
