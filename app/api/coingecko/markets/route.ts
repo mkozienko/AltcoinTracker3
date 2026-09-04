@@ -29,6 +29,9 @@ export async function GET(req: Request) {
   const text = await r.text();
   return new NextResponse(text, {
     status: r.status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    },
   });
 }
