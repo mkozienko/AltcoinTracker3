@@ -1,13 +1,20 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  appendMissingBuyRows,
+  isValidPrice,
+  normalizeSymbol,
+  resolveCoinGeckoPrices,
+  type PortfolioRow,
+} from "../lib/portfolio.mjs";
 
 const LS_ROWS = "alt_rows_v1";
 const LS_THEME = "alt_theme_v1";
 const LS_XLSX_B64 = "alt_xlsx_b64";
 const LS_USER_MAP = "alt_user_map_v1";
 
-type Row = { token: string; buy: number; qty: number; spent?: number | null };
+type Row = PortfolioRow;
 type PriceEntry = { price: number | null; ch: number | null; id: string };
 type MapDict = Record<string, string>;
 
@@ -62,23 +69,6 @@ function colorPL(v: number | null) {
 /* ---------------------------------------------
    SYMBOL NORMALIZATION
 ---------------------------------------------- */
-function normalizeSymbol(raw: string): string {
-  if (!raw) return "";
-  let s = raw.toUpperCase().trim();
-  s = s.replace(/\(.*?\)/g, "");
-  s = s.replace(/\s+/g, "");
-
-  // ВАЖНО: сначала убрать все разделители (/, -, :)
-  s = s.replace(/[^A-Z0-9]/g, "");
-
-  // потом корректно отрезать хвосты USDT/USD
-  while (s.endsWith("USDT") || s.endsWith("USD")) {
-    if (s.endsWith("USDT")) s = s.slice(0, -4);
-    else s = s.slice(0, -3);
-  }
-  return s;
-}
-
 /* ---------------------------------------------
    THEME + TRADINGVIEW
 ---------------------------------------------- */
@@ -131,7 +121,7 @@ function useTradingViewScript() {
 ---------------------------------------------- */
 async function loadBaseMap(): Promise<MapDict> {
   try {
-    const r = await fetch(`/data/coingecko_map.json?v=4`, { cache: "no-store" });
+    const r = await fetch(`/data/coingecko_map.json?v=5`, { cache: "no-store" });
     if (!r.ok) return {};
     return await r.json();
   } catch {
@@ -171,197 +161,24 @@ async function geckoSearchId(symbol: string): Promise<string | null> {
 }
 
 
-async function fetchPricesCryptoCompare(symbols: string[]) {
-  const out: Record<string, PriceEntry> = {};
-  const clean = Array.from(new Set(symbols.filter(Boolean)));
-  if (clean.length === 0) return out;
-
-  const chunkSize = 200; // чтобы URL не был огромным
-  for (let i = 0; i < clean.length; i += chunkSize) {
-    const chunk = clean.slice(i, i + chunkSize);
-    const fsyms = chunk.join(",");
-
-    try {
-      const r = await fetch(
-        `https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${encodeURIComponent(
-          fsyms
-        )}&tsyms=USD`,
-        { cache: "no-store" }
-      );
-      if (!r.ok) continue;
-
-      const js = await r.json();
-
-      for (const s of chunk) {
-        const price = js?.RAW?.[s]?.USD?.PRICE;
-        const ch = js?.RAW?.[s]?.USD?.CHANGEPCT24HOUR;
-
-        out[s] = {
-          price: typeof price === "number" ? price : null,
-          ch: typeof ch === "number" ? ch : null,
-          id: "cryptocompare",
-        };
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  return out;
-}
-
-
-
 /* ---------------------------------------------
    PRICE FETCHER
 ---------------------------------------------- */
 async function fetchPrices(symbols: string[], baseMap: MapDict) {
-  const results: Record<string, PriceEntry> = {};
   const userMap = loadUserMap();
-  const symbolToId: Record<string, string> = {};
-
-  for (const sym of symbols) {
-    if (!sym) continue;
-
-    // 1️⃣ сначала проверяем официальный mapping
-      if (baseMap[sym]) {
-        symbolToId[sym] = baseMap[sym];
-        continue;
-      }
-
-    // 2️⃣ потом используем user cache
-     if (userMap[sym]) {
-      symbolToId[sym] = userMap[sym];
-      continue;
-     }
-
-    const found = await geckoSearchId(sym);
-    if (found) {
-      symbolToId[sym] = found;
-      userMap[sym] = found;
-    }
-  }
-
-  saveUserMap(userMap);
-
-  const uniqueIds = Array.from(new Set(Object.values(symbolToId)));
-  if (uniqueIds.length === 0) return results;
-
-  const chunkSize = 170;
-  const geckoReturns: Record<string, PriceEntry> = {};
-
-  try {
-    for (let i = 0; i < uniqueIds.length; i += chunkSize) {
-      const chunk = uniqueIds.slice(i, i + chunkSize);
-
-      const url =
-  `/api/coingecko/simple-price?ids=${encodeURIComponent(chunk.join(","))}` +
-  `&vs_currencies=usd&include_24hr_change=true`;
-
-
-      const r = await fetch(url);
-      if (!r.ok) throw new Error("Gecko failed");
-      const js = await r.json();
-
-      for (const [gid, obj] of Object.entries<any>(js)) {
-        const price = typeof obj?.usd === "number" ? obj.usd : null;
-        const ch = typeof obj?.usd_24h_change === "number" ? obj.usd_24h_change : null;
-
-        for (const [sym, mapped] of Object.entries(symbolToId)) {
-          if (mapped === gid) {
-            geckoReturns[sym] = { price, ch, id: gid };
-          }
-        }
-      }
-    }
-  } catch {
-    // если API упал — просто вернём пусто
-  }
-
-// Fallback for suspicious prices (0 / null / extremely small)
-const badIds = new Set<string>();
-
-for (const [sym, gid] of Object.entries(symbolToId)) {
-  const p = geckoReturns[sym]?.price;
-  if (p == null || !Number.isFinite(p) || p <= 0 || p < 0.000001) {
-    badIds.add(gid);
-  }
-}
-
-// If some ids have bad prices, re-fetch them via /coins/markets (more stable)
-
-
-if (badIds.size > 0) {
-  const ids = Array.from(badIds);
-  const chunkSize2 = 100;
-
-  for (let i = 0; i < ids.length; i += chunkSize2) {
-    const chunk = ids.slice(i, i + chunkSize2);
-
-const url =
-  `/api/coingecko/markets?vs_currency=usd&ids=${encodeURIComponent(chunk.join(","))}` +
-  `&price_change_percentage=24h`;
-   
-
-    try {
-      const r2 = await fetch(url);
-      if (!r2.ok) continue;
-      const arr = await r2.json();
-
-      // arr: [{ id, current_price, price_change_percentage_24h, ... }]
-      for (const it of arr) {
-        const gid = String(it?.id || "");
-        const price = typeof it?.current_price === "number" ? it.current_price : null;
-        const ch =
-          typeof it?.price_change_percentage_24h === "number"
-            ? it.price_change_percentage_24h
-            : null;
-
-        // update all symbols mapped to this gid
-        for (const [sym, mapped] of Object.entries(symbolToId)) {
-          if (mapped === gid) {
-            geckoReturns[sym] = { price, ch, id: gid };
-          }
-        }
-      }
-    } catch {
-      // ignore fallback errors
-    }
-  }
-}
-
-// FINAL fallback: CryptoCompare for still-missing/suspicious prices
-const needCC: string[] = [];
-
-for (const s of symbols) {
-  const p = geckoReturns[s]?.price ?? null;
-  if (p == null || !Number.isFinite(p) || p <= 0 || p < 0.000001) {
-    needCC.push(s);
-  }
-}
-
-if (needCC.length > 0) {
-  const cc = await fetchPricesCryptoCompare(needCC);
-
-  for (const s of needCC) {
-    const price = cc[s]?.price ?? null;
-    const ch = cc[s]?.ch ?? null;
-
-    if (price != null && Number.isFinite(price) && price > 0) {
-      geckoReturns[s] = {
-        price,
-        ch: ch ?? geckoReturns[s]?.ch ?? null,
-        id: geckoReturns[s]?.id || "—",
-      };
-    }
-  }
-}
-	
-  for (const s of symbols) {
-    results[s] = geckoReturns[s] ?? { price: null, ch: null, id: symbolToId[s] || "—" };
-  }
-
-  return results;
+  const resolved = await resolveCoinGeckoPrices({
+    symbols,
+    baseMap,
+    userMap,
+    searchId: geckoSearchId,
+    requestJson: async (url: string) => {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error("CoinGecko request failed");
+      return response.json();
+    },
+  });
+  saveUserMap(resolved.userMap);
+  return resolved.prices;
 }
 
 /* ---------------------------------------------
@@ -473,7 +290,10 @@ async function readSummarySheet(file: File): Promise<Row[]> {
 
   // 1) пробуем Summary (как раньше)
   const fromSummary = readFromSummary(XLSX, wb);
-  if (fromSummary && fromSummary.length > 0) return fromSummary;
+  if (fromSummary && fromSummary.length > 0) {
+    const fromBuys = wb.Sheets["Buys"] ? readFromBuys(XLSX, wb) : [];
+    return appendMissingBuyRows(fromSummary, fromBuys);
+  }
 
   // 2) fallback: Buys (надёжно, потому что qty там числа)
   return readFromBuys(XLSX, wb);
@@ -508,6 +328,7 @@ export default function AltcoinTrackerApp() {
   const [tvSymbol, setTvSymbol] = useState<string | null>(null);
 
   const [compact, setCompact] = useState(false);
+  const priceRequestRef = useRef(0);
 
 useEffect(() => {
   const mq = window.matchMedia("(max-width: 768px)");
@@ -586,9 +407,10 @@ useEffect(() => {
 
   async function refresh() {
     if (!map || Object.keys(map).length === 0) return;
+    const requestId = ++priceRequestRef.current;
     const symbols = Array.from(new Set(rows.map((r) => normalizeSymbol(r.token))));
     const p = await fetchPrices(symbols, map);
-    setPrices(p);
+    if (requestId === priceRequestRef.current) setPrices(p);
   }
 
   /* UPLOAD EXCEL */
@@ -605,6 +427,7 @@ useEffect(() => {
       const userMap = loadUserMap();
 
       for (const s of symbols) {
+        if (map[s]) continue;
         if (userMap[s]) continue;
         const found = await geckoSearchId(s);
         if (found) userMap[s] = found;
@@ -689,7 +512,7 @@ const totals = useMemo(() => {
   for (const t of table) {
     totalSpent += t.spent ?? 0;
 
-    if (t.cur != null && Number.isFinite(t.cur)) {
+    if (isValidPrice(t.cur)) {
       totalCur += t.cur * (t.qty ?? 0);
       pricedCount += 1;
     }
@@ -955,4 +778,3 @@ function Th({
     </th>
   );
 }
-
