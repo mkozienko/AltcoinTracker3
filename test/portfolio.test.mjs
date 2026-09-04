@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import * as XLSX from "xlsx";
 import {
   appendMissingBuyRows,
   countValidPrices,
   isValidPrice,
   normalizeSymbol,
+  readPortfolioWorkbook,
   resolveCoinGeckoPrices,
 } from "../lib/portfolio.mjs";
 
@@ -73,6 +75,111 @@ test("ROOT missing from Summary is recovered from Buys without replacing Summary
   ];
   assert.deepEqual(appendMissingBuyRows(summary, buys), [summary[0], buys[1]]);
   assert.equal(official.ROOT, "the-root-network");
+});
+
+test("MNGO pair variants use the Mango Markets CoinGecko ID", async () => {
+  assert.equal(official.MNGO, "mango-markets");
+  assert.equal(official.MNGOUSDT, "mango-markets");
+  const { prices } = await resolve(
+    ["MNGO"],
+    { "mango-markets": { usd: 0.025 } },
+    [],
+  );
+  assert.deepEqual(prices.MNGO, { price: 0.025, ch: null, id: "mango-markets" });
+});
+
+test("ROOT survives the serialized workbook import when absent from Summary", () => {
+  for (const rootToken of ["ROOT", "ROOTUSDT", "ROOT/USDT"]) {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ["Token", "Buy Price", "Ignored", "Quantity", "Spent"],
+        ["GRAM/USDT", 1, null, 2, 2],
+      ]),
+      "Summary",
+    );
+    // The source Buys sheet has columns in this order; the former fixed A/B/D
+    // indexes read the date as a token and never reached ROOT.
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ["Date", "Quantity", "Pair", "Buy Price"],
+        ["2026-01-02", 9, "GRAMUSDT", 9],
+        ["2026-01-03", 100, rootToken, 0.03],
+      ]),
+      "Buys",
+    );
+
+    const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    const imported = XLSX.read(bytes, { type: "buffer" });
+    const rows = readPortfolioWorkbook(XLSX, imported);
+
+    assert.deepEqual(rows, [
+      { token: "GRAM/USDT", buy: 1, qty: 2, spent: 2 },
+      { token: "ROOT/USDT", buy: 0.03, qty: 100, spent: 3 },
+    ]);
+  }
+  assert.equal(official.ROOT, "the-root-network");
+});
+
+test("Summary uses Qty when Leftover is blank", () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Token", "AVG Price", "Qty", "Leftover"],
+      ["OPEN", 2, 100, null],
+    ]),
+    "Summary",
+  );
+
+  assert.deepEqual(readPortfolioWorkbook(XLSX, workbook), [
+    { token: "OPEN/USDT", buy: 2, qty: 100, spent: 200 },
+  ]);
+});
+
+test("Summary uses a non-empty Leftover as current Qty", () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Token", "AVG Price", "Qty", "Leftover"],
+      ["PARTIAL", 2, 100, 40],
+    ]),
+    "Summary",
+  );
+
+  assert.deepEqual(readPortfolioWorkbook(XLSX, workbook), [
+    { token: "PARTIAL/USDT", buy: 2, qty: 40, spent: 80 },
+  ]);
+});
+
+test("numeric zero Leftover excludes a closed position without reading Sales", () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Token", "AVG Price", "Qty", "Leftover"],
+      ["CLOSED", 2, 100, 0],
+    ]),
+    "Summary",
+  );
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Token", "Buy Price", "Qty"],
+      ["CLOSED", 2, 100],
+    ]),
+    "Buys",
+  );
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([["CLOSED", 100, "must not be processed"]]),
+    "Sales",
+  );
+
+  assert.deepEqual(readPortfolioWorkbook(XLSX, workbook), []);
 });
 
 test("required pair formats normalize and only positive finite prices are counted", () => {

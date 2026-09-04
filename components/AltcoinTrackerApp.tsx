@@ -2,9 +2,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  appendMissingBuyRows,
   isValidPrice,
   normalizeSymbol,
+  readPortfolioWorkbook,
   resolveCoinGeckoPrices,
   type PortfolioRow,
 } from "../lib/portfolio.mjs";
@@ -20,41 +20,6 @@ type MapDict = Record<string, string>;
 
 function cx(...a: (string | false | undefined | null)[]) {
   return a.filter(Boolean).join(" ");
-}
-
-function numOrNull(v: any) {
-  if (v == null) return null;
-  const n = parseFloat(String(v).replace(/,/g, "").trim());
-  return Number.isFinite(n) ? n : null;
-}
-
-// поддержка простых формул типа "=0.1+0.2" или "=(1+2)*3"
-function numOrNullMaybeFormula(v: any) {
-  if (v == null) return null;
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-
-  const s = String(v).trim();
-  // обычное число строкой
-  const n = numOrNull(s);
-  if (n != null) return n;
-
-  // простая формула (НЕ Excel-функции типа SUMIF)
-  if (s.startsWith("=")) {
-    const expr = s.slice(1).trim();
-    // разрешим только цифры, пробелы и арифметику
-    if (/^[0-9+\-*/().\s]+$/.test(expr)) {
-      try {
-        // eslint-disable-next-line no-new-func
-        const val = Function(`"use strict"; return (${expr});`)();
-        const nn = typeof val === "number" ? val : parseFloat(String(val));
-        return Number.isFinite(nn) ? nn : null;
-      } catch {
-        return null;
-      }
-    }
-  }
-
-  return null;
 }
 
 function fmt(n: number | null | undefined, d = 2) {
@@ -184,99 +149,6 @@ async function fetchPrices(symbols: string[], baseMap: MapDict) {
 /* ---------------------------------------------
    READ EXCEL (Summary with fallback to Buys)
 ---------------------------------------------- */
-function normalizeTokenForRow(token: string) {
-  const t = String(token || "").trim();
-  if (!t) return "";
-  // если уже есть "/", не трогаем; иначе добавим "/USDT" (как было у тебя)
-  return t.includes("/") ? t : `${t}/USDT`;
-}
-
-function readFromSummary(XLSX: any, wb: any): Row[] | null {
-  const sheet = wb.Sheets["Summary"] || wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return null;
-
-  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-  const out: Row[] = [];
-
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r) continue;
-
-    const tokenRaw = String(r[0] ?? "").trim();
-    if (!tokenRaw) continue;
-
-    const buy = numOrNullMaybeFormula(r[1]);
-    if (buy == null) continue;
-
-    const qty = numOrNullMaybeFormula(r[3]); // D
-    const spent = numOrNullMaybeFormula(r[4]); // E
-
-    out.push({
-      token: normalizeTokenForRow(tokenRaw),
-      buy,
-      qty: qty ?? 0,
-      spent: spent ?? null,
-    });
-  }
-
-  // если почти всё qty = 0, значит Summary не даёт чисел (формулы без cached results)
-  const nonEmpty = out.filter((x) => x.token).length;
-  const nonZeroQty = out.filter((x) => (x.qty ?? 0) > 0).length;
-
-  if (nonEmpty > 0 && nonZeroQty === 0) return null; // fallback на Buys
-  return out;
-}
-
-function readFromBuys(XLSX: any, wb: any): Row[] {
-  const sheet = wb.Sheets["Buys"];
-  if (!sheet) throw new Error("Sheet 'Buys' not found");
-
-  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-
-  // агрегируем по символу (BTC, SOL, ...)
-  const agg: Record<
-    string,
-    { tokenRaw: string; qty: number; spent: number }
-  > = {};
-
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r) continue;
-
-    const tokenRaw = String(r[0] ?? "").trim();
-    if (!tokenRaw) continue;
-
-    const price = numOrNullMaybeFormula(r[1]);
-    const qty = numOrNullMaybeFormula(r[3]);
-
-    if (price == null) continue;
-    if (qty == null || qty === 0) continue;
-
-    const spent = price * qty;
-
-    const key = normalizeSymbol(tokenRaw); // BTC, SOL, ...
-    if (!key) continue;
-
-    if (!agg[key]) agg[key] = { tokenRaw, qty: 0, spent: 0 };
-    agg[key].qty += qty;
-    agg[key].spent += spent;
-  }
-
-  const out: Row[] = Object.entries(agg)
-    .filter(([, v]) => v.qty > 0)
-    .map(([, v]) => {
-      const buy = v.spent / v.qty; // weighted avg
-      return {
-        token: normalizeTokenForRow(v.tokenRaw),
-        buy,
-        qty: v.qty,
-        spent: v.spent,
-      };
-    });
-
-  return out;
-}
-
 async function readSummarySheet(file: File): Promise<Row[]> {
   const XLSX = await import("xlsx");
   const data = await file.arrayBuffer();
@@ -286,17 +158,7 @@ async function readSummarySheet(file: File): Promise<Row[]> {
     localStorage.setItem(LS_XLSX_B64, b64);
   } catch {}
 
-  const wb = XLSX.read(data, { type: "array" });
-
-  // 1) пробуем Summary (как раньше)
-  const fromSummary = readFromSummary(XLSX, wb);
-  if (fromSummary && fromSummary.length > 0) {
-    const fromBuys = wb.Sheets["Buys"] ? readFromBuys(XLSX, wb) : [];
-    return appendMissingBuyRows(fromSummary, fromBuys);
-  }
-
-  // 2) fallback: Buys (надёжно, потому что qty там числа)
-  return readFromBuys(XLSX, wb);
+  return readPortfolioWorkbook(XLSX, XLSX.read(data, { type: "array" }));
 }
 
 /* ---------------------------------------------
@@ -608,7 +470,7 @@ const totals = useMemo(() => {
                 : ""}
               )
             </span>{" "}
-            • Spent: ${fmt(totals.totalSpent, 2)} • Priced coins:{" "}
+            • Currently invested: ${fmt(totals.totalSpent, 2)} • Priced coins:{" "}
             {totals.pricedCount}/{table.length}
           </div>
         </div>
@@ -633,7 +495,7 @@ const totals = useMemo(() => {
               <Th label="Qty" sortKey="qty" sort={sort} onSort={onSort} right />
             )}
 
-            <Th label="Spent" sortKey="spent" sort={sort} onSort={onSort} right />
+            <Th label="Invested" sortKey="spent" sort={sort} onSort={onSort} right />
             <Th label="Value" sortKey="curVal" sort={sort} onSort={onSort} right />
 
             <Th
