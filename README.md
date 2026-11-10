@@ -2,7 +2,8 @@
 
 A personal web app for tracking a crypto portfolio bought across several exchanges. Upload an Excel file with your purchases, and the app works out the average buy price for each token, fetches live prices, and shows profit and loss per position and for the whole portfolio.
 
-<!-- Add a screenshot here: ![App screenshot](docs/screenshot.png) -->
+<img width="1300" height="725" alt="Altcoin Portfolio Tracker" src="https://github.com/user-attachments/assets/f489a5db-4ec3-48c1-8e39-d2b39aaca9ae" />
+
 
 ## Features
 
